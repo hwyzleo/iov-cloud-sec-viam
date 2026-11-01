@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.mapper.SecurityPrincipalMapper">
+
+    <select id="selectByPrincipalId" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.SecurityPrincipalPo">
+        SELECT * FROM tb_viam_security_principal
+        WHERE principal_id = #{principalId} AND row_valid = 1
+    </select>
+
+    <select id="selectByHsmUid" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.SecurityPrincipalPo">
+        SELECT * FROM tb_viam_security_principal
+        WHERE hsm_uid = #{hsmUid} AND row_valid = 1
+    </select>
+
+</mapper>

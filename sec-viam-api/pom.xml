@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>net.hwyz.iov.cloud.parent</groupId>
+        <artifactId>api</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>net.hwyz.iov.cloud.sec</groupId>
+    <artifactId>sec-viam-api</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+
+    <properties>
+    </properties>
+
+    <dependencies>
+        <!-- 官方 Keyprov canonical wire（PAR-PROTO security.keyprov.v1） -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.proto</groupId>
+            <artifactId>proto-keyprov</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+
+</project>

@@ -1,0 +1,82 @@
+# VIAM 安全配置基线（SEC-VIAM-DSN-CR-001）
+# 本文件只承载非敏感逻辑开关与固定语义；密码学材料/Provisioner Secret/信任锚经 Secret 注入，
+# Nacos 不保存秘密正文。所有能力默认 fail-closed：未显式启用视为不可用，不伪装为吊销或成功。
+
+crypto:
+  provisioning:
+    # Keyprov 能力（FR-VIAM-003）：生产显式开启；未就绪时 Keyprov Health DOWN，禁止新请求。
+    enabled: ${VIAM_CRYPTO_PROVISIONING_ENABLED:false}
+    derived-key:
+      provider: ${VIAM_CRYPTO_PROVISIONING_DERIVED_KEY_PROVIDER:}
+      require-ready-at-startup: ${VIAM_CRYPTO_PROVISIONING_DERIVED_KEY_REQUIRE_READY_AT_STARTUP:true}
+      derivation-version: ${VIAM_CRYPTO_PROVISIONING_DERIVED_KEY_DERIVATION_VERSION:v1}
+      aad-profile-id: ${VIAM_CRYPTO_PROVISIONING_DERIVED_KEY_AAD_PROFILE_ID:PAR_PROTO_KEYPROV_AAD_V1}
+      result-store:
+        enabled: ${VIAM_CRYPTO_PROVISIONING_DERIVED_KEY_RESULT_STORE_ENABLED:true}
+        ttl: ${VIAM_CRYPTO_PROVISIONING_DERIVED_KEY_RESULT_STORE_TTL:24h}
+        allow-in-memory: ${VIAM_CRYPTO_PROVISIONING_DERIVED_KEY_RESULT_STORE_ALLOW_IN_MEMORY:true}
+  business-key:
+    enabled: ${VIAM_CRYPTO_BUSINESS_KEY_ENABLED:false}
+    directory:
+      enabled: ${VIAM_CRYPTO_BUSINESS_KEY_DIRECTORY_ENABLED:false}
+  kms:
+    business-key:
+      enabled: ${VIAM_CRYPTO_KMS_BUSINESS_KEY_ENABLED:false}
+      api-version: ${VIAM_CRYPTO_KMS_BUSINESS_KEY_API_VERSION:v1}
+      mount: ${VIAM_CRYPTO_KMS_BUSINESS_KEY_MOUNT:business-key}
+      capability-path: ${VIAM_CRYPTO_KMS_BUSINESS_KEY_CAPABILITY_PATH:/v1/business-key/capabilities}
+      require-ready-at-startup: ${VIAM_CRYPTO_KMS_BUSINESS_KEY_REQUIRE_READY_AT_STARTUP:false}
+      reconcile-enabled: ${VIAM_CRYPTO_KMS_BUSINESS_KEY_RECONCILE_ENABLED:false}
+  pki:
+    certificate-resolution:
+      enabled: ${VIAM_CRYPTO_PKI_CERTIFICATE_RESOLUTION_ENABLED:false}
+      inline-first: true
+      provider-query-enabled: ${VIAM_CRYPTO_PKI_CERTIFICATE_RESOLUTION_PROVIDER_QUERY_ENABLED:true}
+      require-unique-result: true
+      trust-anchors-pem: ${VIAM_CRYPTO_PKI_CERTIFICATE_RESOLUTION_TRUST_ANCHORS_PEM:}
+  import-proof:
+    enabled: ${VIAM_CRYPTO_IMPORT_PROOF_ENABLED:false}
+    require-ready-at-startup: ${VIAM_CRYPTO_IMPORT_PROOF_REQUIRE_READY_AT_STARTUP:false}
+    certificate:
+      require-certificate: true
+      require-trusted-chain: ${VIAM_CRYPTO_IMPORT_PROOF_REQUIRE_TRUSTED_CHAIN:true}
+      require-good-status: ${VIAM_CRYPTO_IMPORT_PROOF_REQUIRE_GOOD_STATUS:false}
+
+# VIAM 业务配置
+viam:
+  # 成功接入证据门禁（D-VIAM-007 / T01/T02）：缺失可信证据时不写成功登录、不推进 ACTIVATING
+  login-evidence:
+    # 是否接受 vagw.device.online 事件（VAGW 配套补齐 admissionDecisionId/等效证据前保持 false）
+    enabled: ${VIAM_LOGIN_EVIDENCE_ENABLED:false}
+    # 缺少证据时进入隔离/重试，不阻断其它模块编码
+    quarantine-on-missing-evidence: ${VIAM_LOGIN_EVIDENCE_QUARANTINE_ON_MISSING:true}
+    # 准入快照最大有效期（分钟）
+    snapshot-max-age-minutes: ${VIAM_LOGIN_EVIDENCE_SNAPSHOT_MAX_AGE_MINUTES:10}
+    # 重试/隔离队列水位
+    quarantine-queue-limit: ${VIAM_LOGIN_EVIDENCE_QUARANTINE_QUEUE_LIMIT:10000}
+  # Keyprov KL1 固定参数（FR-VIAM-003；迁移不得重派生/重包裹/重新签发）
+  keyprov:
+    # ACK 截止 = F + ack-deadline-seconds（固定，重放不延 B）
+    ack-deadline-seconds: ${VIAM_KEYPROV_ACK_DEADLINE_SECONDS:300}
+    # 交付租约：E=min(now+60s, B-30s)；E-now<20s 不签发
+    lease-window-seconds: ${VIAM_KEYPROV_LEASE_WINDOW_SECONDS:60}
+    lease-min-headroom-seconds: ${VIAM_KEYPROV_LEASE_MIN_HEADROOM_SECONDS:20}
+  # 安全开通状态机
+  onboarding:
+    # 完整用途集（V2C 首期固定 UPLINK_AEAD + DOWNLINK_AEAD）
+    full-purpose-set: ${VIAM_ONBOARDING_FULL_PURPOSE_SET:UPLINK_AEAD,DOWNLINK_AEAD}
+  kafka:
+    topics:
+      # 消费：VAGW 设备上线（输入）
+      vagw-device-online: ${VIAM_KAFKA_TOPIC_VAGW_DEVICE_ONLINE:vagw.device.online}
+      # 发布（待登记新契约，schema/owner/ACL 登记后方可启用）
+      device-login-succeeded: ${VIAM_KAFKA_TOPIC_DEVICE_LOGIN_SUCCEEDED:viam.device.login-succeeded}
+      device-onboarding-changed: ${VIAM_KAFKA_TOPIC_DEVICE_ONBOARDING_CHANGED:viam.device.onboarding.changed}
+      device-certificate-changed: ${VIAM_KAFKA_TOPIC_DEVICE_CERTIFICATE_CHANGED:viam.device-certificate.changed}
+      business-key-changed: ${VIAM_KAFKA_TOPIC_BUSINESS_KEY_CHANGED:viam.business-key.changed}
+      tbox-v2c-key-provisioned: ${VIAM_KAFKA_TOPIC_TBOX_V2C_KEY_PROVISIONED:viam.tbox-v2c-key-provisioned}
+    topic-provisioning:
+      replication-factor: ${VIAM_KAFKA_TOPIC_REPLICATION_FACTOR:1}
+      cleanup-policy: ${VIAM_KAFKA_TOPIC_CLEANUP_POLICY:delete}
+    readiness:
+      gate-producer: ${VIAM_KAFKA_READINESS_GATE_PRODUCER:true}

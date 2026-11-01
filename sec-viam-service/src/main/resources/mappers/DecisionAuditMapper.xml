@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.mapper.DecisionAuditMapper">
+
+    <select id="selectByAdmissionDecisionId" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.DecisionAuditPo">
+        SELECT * FROM tb_viam_admission_audit
+        WHERE admission_decision_id = #{admissionDecisionId} AND row_valid = 1
+    </select>
+
+</mapper>

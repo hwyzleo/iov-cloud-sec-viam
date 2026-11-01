@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.mapper.DeviceBusinessKeyMapper">
+
+    <select id="selectByKeyId" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.DeviceBusinessKeyPo">
+        SELECT * FROM tb_viam_device_business_key
+        WHERE key_id = #{keyId} AND row_valid = 1
+        LIMIT 1
+    </select>
+
+    <select id="selectActiveByContext" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.DeviceBusinessKeyPo">
+        SELECT * FROM tb_viam_device_business_key
+        WHERE device_sn = #{deviceSn} AND business_domain = #{businessDomain}
+          AND purpose = #{purpose} AND key_state = 'ACTIVE' AND row_valid = 1
+        LIMIT 1
+    </select>
+
+    <select id="selectByRequestIdAndPurpose" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.DeviceBusinessKeyPo">
+        SELECT * FROM tb_viam_device_business_key
+        WHERE request_id = #{requestId} AND purpose = #{purpose} AND row_valid = 1
+        LIMIT 1
+    </select>
+
+</mapper>

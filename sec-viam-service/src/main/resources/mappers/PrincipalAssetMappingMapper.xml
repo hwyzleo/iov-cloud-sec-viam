@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.mapper.PrincipalAssetMappingMapper">
+
+    <select id="selectActiveByPrincipalId" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.PrincipalAssetMappingPo">
+        SELECT * FROM tb_viam_principal_asset_mapping
+        WHERE principal_id = #{principalId} AND status = 'ACTIVE' AND row_valid = 1
+    </select>
+
+    <select id="selectActiveByVin" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.PrincipalAssetMappingPo">
+        SELECT * FROM tb_viam_principal_asset_mapping
+        WHERE vin = #{vin} AND status = 'ACTIVE' AND row_valid = 1
+    </select>
+
+    <select id="selectActiveByDeviceSn" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.PrincipalAssetMappingPo">
+        SELECT * FROM tb_viam_principal_asset_mapping
+        WHERE device_sn = #{deviceSn} AND status = 'ACTIVE' AND row_valid = 1
+    </select>
+
+</mapper>

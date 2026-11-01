@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>net.hwyz.iov.cloud.parent</groupId>
+        <artifactId>service</artifactId>
+        <version>0.0.1-SNAPSHOT</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>net.hwyz.iov.cloud.sec</groupId>
+    <artifactId>sec-viam-service</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+
+    <properties>
+        <edd-mpt-version>0.0.1-SNAPSHOT</edd-mpt-version>
+        <vmd.version>0.0.1-SNAPSHOT</vmd.version>
+        <!-- PAR-PROTO canonical wire（security.keyprov.v1） -->
+        <protobuf.version>3.25.5</protobuf.version>
+        <par-proto.version>0.0.1-SNAPSHOT</par-proto.version>
+    </properties>
+
+    <dependencies>
+        <!-- VIAM 官方 API（目标安全契约唯一源） -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.sec</groupId>
+            <artifactId>sec-viam-api</artifactId>
+            <version>0.0.1-SNAPSHOT</version>
+        </dependency>
+
+        <!-- 框架：MySQL -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.framework</groupId>
+            <artifactId>framework-mysql-starter</artifactId>
+        </dependency>
+
+        <!-- 框架：Redis -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.framework</groupId>
+            <artifactId>framework-redis-starter</artifactId>
+        </dependency>
+
+        <!-- 框架：Kafka -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.framework</groupId>
+            <artifactId>framework-kafka-starter</artifactId>
+        </dependency>
+
+        <!-- 框架：安全（FW-SEC PkiClient / 证书 / Keyprov / ImportProof） -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.framework</groupId>
+            <artifactId>framework-security-starter</artifactId>
+        </dependency>
+
+        <!-- 管理后台系统接口 -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.edd</groupId>
+            <artifactId>edd-mpt-api</artifactId>
+            <version>${edd-mpt-version}</version>
+        </dependency>
+
+        <!-- VMD 官方事实查询/事件（D-VIAM-003：只读投影，不反向修改绑定） -->
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.edd</groupId>
+            <artifactId>edd-vmd-api</artifactId>
+            <version>${vmd.version}</version>
+        </dependency>
+
+        <!-- PAR-PROTO canonical wire：keyprov 上行/下行不复制 Proto、不手写 JSON codec -->
+        <dependency>
+            <groupId>com.google.protobuf</groupId>
+            <artifactId>protobuf-java</artifactId>
+            <version>${protobuf.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>net.hwyz.iov.cloud.proto</groupId>
+            <artifactId>proto-keyprov</artifactId>
+            <version>${par-proto.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <skip>false</skip>
+                    <includes>
+                        <include>**/*Test.java</include>
+                        <include>**/*IT.java</include>
+                    </includes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
