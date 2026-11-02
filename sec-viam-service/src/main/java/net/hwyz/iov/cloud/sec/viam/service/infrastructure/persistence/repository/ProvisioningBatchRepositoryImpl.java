@@ -44,12 +44,17 @@ public class ProvisioningBatchRepositoryImpl implements ProvisioningBatchReposit
         ProvisioningBatchPo po = ProvisioningBatchConverter.toPo(batch);
         ProvisioningBatchPo existing = mapper.selectByRequestId(batch.getRequestId());
         if (existing == null) {
-            mapper.insertPo(po);
+            mapper.insert(po);
             batch.setId(po.getId());
         } else {
             po.setId(existing.getId());
             batch.setId(existing.getId());
-            mapper.updatePo(po);
+            // FW-MYSQL-DSN-CR-003：updatePo → updateById；原版本须由 fresh 读取携带（乐观锁 CAS），并检查影响行数
+            po.setRowVersion(existing.getRowVersion());
+            int updated = mapper.updateById(po);
+            if (updated != 1) {
+                throw new IllegalStateException("ProvisioningBatch 更新未影响一行: id=" + existing.getId());
+            }
         }
     }
 
@@ -57,7 +62,15 @@ public class ProvisioningBatchRepositoryImpl implements ProvisioningBatchReposit
     public void saveItem(ProvisioningItem item) {
         ProvisioningItemPo po = ProvisioningBatchConverter.itemToPo(item);
         if (po.getId() != null) {
-            itemMapper.updatePo(po);
+            // FW-MYSQL-DSN-CR-003：updatePo → updateById；原版本经 selectById 携带（乐观锁 CAS），并检查影响行数
+            ProvisioningItemPo existingItem = itemMapper.selectById(po.getId());
+            if (existingItem != null) {
+                po.setRowVersion(existingItem.getRowVersion());
+            }
+            int updated = itemMapper.updateById(po);
+            if (updated != 1) {
+                throw new IllegalStateException("ProvisioningItem 更新未影响一行: id=" + po.getId());
+            }
             return;
         }
         List<ProvisioningItemPo> existing = itemMapper.selectItemsByProvisioningId(item.getProvisioningId());
@@ -65,12 +78,17 @@ public class ProvisioningBatchRepositoryImpl implements ProvisioningBatchReposit
                 .filter(e -> e.getPurpose().equals(item.getPurpose()))
                 .findFirst();
         if (found.isEmpty()) {
-            itemMapper.insertPo(po);
+            itemMapper.insert(po);
             item.setId(po.getId());
         } else {
             po.setId(found.get().getId());
             item.setId(found.get().getId());
-            itemMapper.updatePo(po);
+            // FW-MYSQL-DSN-CR-003：updatePo → updateById；原版本须由 fresh 读取携带（乐观锁 CAS），并检查影响行数
+            po.setRowVersion(found.get().getRowVersion());
+            int updated = itemMapper.updateById(po);
+            if (updated != 1) {
+                throw new IllegalStateException("ProvisioningItem 更新未影响一行: id=" + found.get().getId());
+            }
         }
     }
 

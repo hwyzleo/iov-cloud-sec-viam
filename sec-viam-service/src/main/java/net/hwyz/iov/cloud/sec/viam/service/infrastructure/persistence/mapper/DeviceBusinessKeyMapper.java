@@ -1,6 +1,6 @@
 package net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.mapper;
 
-import net.hwyz.iov.cloud.framework.mysql.dao.BaseDao;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.DeviceBusinessKeyPo;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -11,7 +11,7 @@ import org.apache.ibatis.annotations.Param;
  * @author hwyz_leo
  */
 @Mapper
-public interface DeviceBusinessKeyMapper extends BaseDao<DeviceBusinessKeyPo, Long> {
+public interface DeviceBusinessKeyMapper extends BaseMapper<DeviceBusinessKeyPo> {
 
     DeviceBusinessKeyPo selectByKeyId(@Param("keyId") String keyId);
 

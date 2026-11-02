@@ -1,6 +1,7 @@
 package net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.repository;
 
 import lombok.RequiredArgsConstructor;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import net.hwyz.iov.cloud.sec.viam.service.domain.model.entity.SecurityPrincipal;
 import net.hwyz.iov.cloud.sec.viam.service.domain.repository.SecurityPrincipalRepository;
 import net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.converter.SecurityPrincipalConverter;
@@ -38,16 +39,23 @@ public class SecurityPrincipalRepositoryImpl implements SecurityPrincipalReposit
         SecurityPrincipalPo po = SecurityPrincipalConverter.toPo(principal);
         SecurityPrincipalPo existing = mapper.selectByPrincipalId(principal.getPrincipalId());
         if (existing == null) {
-            mapper.insertPo(po);
+            mapper.insert(po);
         } else {
             po.setId(existing.getId());
-            mapper.updatePo(po);
+            // FW-MYSQL-DSN-CR-003：updatePo → updateById；原版本须由 fresh 读取携带（乐观锁 CAS），并检查影响行数
+            po.setRowVersion(existing.getRowVersion());
+            int updated = mapper.updateById(po);
+            if (updated != 1) {
+                throw new IllegalStateException("更新未影响一行（不存在/已删除/版本冲突）: id=" + existing.getId());
+            }
         }
     }
 
     @Override
     public List<SecurityPrincipal> listAll(int offset, int limit) {
-        return mapper.selectPoByMap(java.util.Map.of("row_valid", 1)).stream()
+        // FW-MYSQL-DSN-CR-003：selectPoByMap → LambdaQueryWrapper；row_valid=1 由 @TableLogic 自动过滤，
+        // offset/limit 与旧路径一致未参与查询（保留契约）
+        return mapper.selectList(Wrappers.<SecurityPrincipalPo>lambdaQuery()).stream()
                 .map(SecurityPrincipalConverter::toEntity).collect(Collectors.toList());
     }
 }

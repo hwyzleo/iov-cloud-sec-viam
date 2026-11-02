@@ -1,6 +1,6 @@
 package net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.mapper;
 
-import net.hwyz.iov.cloud.framework.mysql.dao.BaseDao;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.KeyProvisioningLeasePo;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -13,7 +13,7 @@ import java.util.List;
  * @author hwyz_leo
  */
 @Mapper
-public interface KeyProvisioningLeaseMapper extends BaseDao<KeyProvisioningLeasePo, Long> {
+public interface KeyProvisioningLeaseMapper extends BaseMapper<KeyProvisioningLeasePo> {
 
     List<KeyProvisioningLeasePo> selectByProvisioningId(@Param("provisioningId") Long provisioningId);
 

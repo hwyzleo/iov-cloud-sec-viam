@@ -59,7 +59,7 @@ public class ViamOutboxWriter {
                 .sourceType(sourceType)
                 .sourceRefId(sourceRefId)
                 .build();
-        outboxMapper.insertPo(po);
+        outboxMapper.insert(po);
         log.info("Outbox写入待发布事件: eventId={}, topic={}, key={}", eventId, topic, messageKey);
     }
 

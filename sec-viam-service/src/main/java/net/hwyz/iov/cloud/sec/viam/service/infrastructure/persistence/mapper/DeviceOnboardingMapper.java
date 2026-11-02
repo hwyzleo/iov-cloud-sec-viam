@@ -1,6 +1,6 @@
 package net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.mapper;
 
-import net.hwyz.iov.cloud.framework.mysql.dao.BaseDao;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.DeviceOnboardingPo;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -11,7 +11,7 @@ import org.apache.ibatis.annotations.Param;
  * @author hwyz_leo
  */
 @Mapper
-public interface DeviceOnboardingMapper extends BaseDao<DeviceOnboardingPo, Long> {
+public interface DeviceOnboardingMapper extends BaseMapper<DeviceOnboardingPo> {
 
     /**
      * 按主体ID查询。

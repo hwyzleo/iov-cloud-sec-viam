@@ -45,7 +45,7 @@ public class ViamInboxWriter {
                 .processedState("PENDING")
                 .retryCount(0)
                 .build();
-        inboxMapper.insertPo(po);
+        inboxMapper.insert(po);
         return true;
     }
 
@@ -58,7 +58,11 @@ public class ViamInboxWriter {
             return;
         }
         po.setProcessedState("PROCESSED");
-        inboxMapper.updatePo(po);
+        // FW-MYSQL-DSN-CR-003：updatePo → updateById；po 来自 fresh selectById，自带当前 rowVersion（乐观锁 CAS），检查影响行数
+        int updated = inboxMapper.updateById(po);
+        if (updated != 1) {
+            throw new IllegalStateException("Inbox 标记处理完成失败（不存在/已删除/版本冲突）: eventId=" + eventId);
+        }
     }
 
     /**
@@ -72,6 +76,10 @@ public class ViamInboxWriter {
         po.setProcessedState("QUARANTINED");
         po.setQuarantineReason(reason);
         po.setRetryCount(po.getRetryCount() + 1);
-        inboxMapper.updatePo(po);
+        // FW-MYSQL-DSN-CR-003：updatePo → updateById（同 markProcessed，携带当前版本并检查影响行数）
+        int updated = inboxMapper.updateById(po);
+        if (updated != 1) {
+            throw new IllegalStateException("Inbox 标记隔离失败（不存在/已删除/版本冲突）: eventId=" + eventId);
+        }
     }
 }

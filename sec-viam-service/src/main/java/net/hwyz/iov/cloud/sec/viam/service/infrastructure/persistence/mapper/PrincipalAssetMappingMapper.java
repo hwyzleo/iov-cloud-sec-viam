@@ -1,6 +1,6 @@
 package net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.mapper;
 
-import net.hwyz.iov.cloud.framework.mysql.dao.BaseDao;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.PrincipalAssetMappingPo;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -13,7 +13,7 @@ import java.util.List;
  * @author hwyz_leo
  */
 @Mapper
-public interface PrincipalAssetMappingMapper extends BaseDao<PrincipalAssetMappingPo, Long> {
+public interface PrincipalAssetMappingMapper extends BaseMapper<PrincipalAssetMappingPo> {
 
     /**
      * 按主体ID查询 ACTIVE 映射列表。

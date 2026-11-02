@@ -36,15 +36,20 @@ public class KeyProvisioningLeaseRepositoryImpl implements KeyProvisioningLeaseR
     public void save(KeyProvisioningLease lease) {
         KeyProvisioningLeasePo existing = lease.getId() == null
                 ? mapper.selectByProvisioningAndSeq(lease.getProvisioningId(), lease.getLeaseSeq())
-                : mapper.selectPoById(lease.getId());
+                : mapper.selectById(lease.getId());
         KeyProvisioningLeasePo po = toPo(lease);
         if (existing == null) {
-            mapper.insertPo(po);
+            mapper.insert(po);
             lease.setId(po.getId());
         } else {
             po.setId(existing.getId());
             lease.setId(existing.getId());
-            mapper.updatePo(po);
+            // FW-MYSQL-DSN-CR-003：updatePo → updateById；原版本须由 fresh 读取携带（乐观锁 CAS），并检查影响行数
+            po.setRowVersion(existing.getRowVersion());
+            int updated = mapper.updateById(po);
+            if (updated != 1) {
+                throw new IllegalStateException("更新未影响一行（不存在/已删除/版本冲突）: id=" + existing.getId());
+            }
         }
     }
 

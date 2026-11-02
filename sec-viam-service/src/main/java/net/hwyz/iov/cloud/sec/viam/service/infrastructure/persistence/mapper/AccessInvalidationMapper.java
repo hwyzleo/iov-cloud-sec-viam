@@ -1,6 +1,6 @@
 package net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.mapper;
 
-import net.hwyz.iov.cloud.framework.mysql.dao.BaseDao;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.AccessInvalidationPo;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -14,7 +14,7 @@ import java.util.List;
  * @author hwyz_leo
  */
 @Mapper
-public interface AccessInvalidationMapper extends BaseDao<AccessInvalidationPo, Long> {
+public interface AccessInvalidationMapper extends BaseMapper<AccessInvalidationPo> {
 
     AccessInvalidationPo selectByInvalidationId(@Param("invalidationId") String invalidationId);
 

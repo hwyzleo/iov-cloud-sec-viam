@@ -41,15 +41,20 @@ public class AccessInvalidationRepositoryImpl implements AccessInvalidationRepos
     public void save(AccessInvalidationRecord record) {
         AccessInvalidationPo existing = record.getId() == null
                 ? mapper.selectByInvalidationId(record.getInvalidationId())
-                : mapper.selectPoById(record.getId());
+                : mapper.selectById(record.getId());
         AccessInvalidationPo po = toPo(record);
         if (existing == null) {
-            mapper.insertPo(po);
+            mapper.insert(po);
             record.setId(po.getId());
         } else {
             po.setId(existing.getId());
             record.setId(existing.getId());
-            mapper.updatePo(po);
+            // FW-MYSQL-DSN-CR-003：updatePo → updateById；原版本须由 fresh 读取携带（乐观锁 CAS），并检查影响行数
+            po.setRowVersion(existing.getRowVersion());
+            int updated = mapper.updateById(po);
+            if (updated != 1) {
+                throw new IllegalStateException("更新未影响一行（不存在/已删除/版本冲突）: id=" + existing.getId());
+            }
         }
     }
 

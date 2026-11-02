@@ -98,3 +98,9 @@ viam:
       cleanup-policy: ${VIAM_KAFKA_TOPIC_CLEANUP_POLICY:delete}
     readiness:
       gate-producer: ${VIAM_KAFKA_READINESS_GATE_PRODUCER:true}
+
+# FW-MYSQL-DSN-CR-003：Mapper 语句完整性校验，VIAM 首批显式 fail——缺语句在业务流量前阻断启动（早失败）
+iov:
+  mysql:
+    mapper-validation:
+      mode: fail

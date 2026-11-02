@@ -30,15 +30,20 @@ public class SecurityOperationAuditRepositoryImpl implements SecurityOperationAu
     public void save(SecurityOperationAudit audit) {
         SecurityOperationAuditPo existing = audit.getId() == null
                 ? mapper.selectByOperationId(audit.getOperationId())
-                : mapper.selectPoById(audit.getId());
+                : mapper.selectById(audit.getId());
         SecurityOperationAuditPo po = toPo(audit);
         if (existing == null) {
-            mapper.insertPo(po);
+            mapper.insert(po);
             audit.setId(po.getId());
         } else {
             po.setId(existing.getId());
             audit.setId(existing.getId());
-            mapper.updatePo(po);
+            // FW-MYSQL-DSN-CR-003：updatePo → updateById；原版本须由 fresh 读取携带（乐观锁 CAS），并检查影响行数
+            po.setRowVersion(existing.getRowVersion());
+            int updated = mapper.updateById(po);
+            if (updated != 1) {
+                throw new IllegalStateException("更新未影响一行（不存在/已删除/版本冲突）: id=" + existing.getId());
+            }
         }
     }
 

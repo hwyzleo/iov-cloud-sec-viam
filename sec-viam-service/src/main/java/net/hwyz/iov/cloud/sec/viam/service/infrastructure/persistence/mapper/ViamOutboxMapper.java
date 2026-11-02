@@ -1,6 +1,6 @@
 package net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.mapper;
 
-import net.hwyz.iov.cloud.framework.mysql.dao.BaseDao;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.ViamOutboxPo;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
@@ -11,7 +11,7 @@ import org.apache.ibatis.annotations.Param;
  * @author hwyz_leo
  */
 @Mapper
-public interface ViamOutboxMapper extends BaseDao<ViamOutboxPo, Long> {
+public interface ViamOutboxMapper extends BaseMapper<ViamOutboxPo> {
 
     /**
      * 按事件ID查询（幂等）。
