@@ -87,9 +87,33 @@ public class DeviceAdmissionAppService {
                 .certStatus(CertificateStatus.valOf(audit.getCertStatus()))
                 .deviceStatus(DeviceStatus.valOf(audit.getDeviceStatus()))
                 .bindVersion(audit.getBindVersion())
+                .securityVersion(currentSecurityVersion(request.getUid()))
                 .updatedAt(Instant.now())
                 .admissionDecisionId(decisionId)
                 .build();
+    }
+
+    /**
+     * 会话授权时的安全状态版本（G-3）：VAGW 记录于会话/准入上下文，供乱序失效事件判定
+     * （block(v10) 事件迟到时，v11 授权的新会话不受影响）。读取失败不阻断准入，以 0 兜底。
+     */
+    private long currentSecurityVersion(String uid) {
+        try {
+            String normalized = ViamUtils.normalizeUid(uid);
+            if (normalized == null) {
+                return 0L;
+            }
+            SecurityPrincipal principal = principalRepository.findByHsmUid(normalized).orElse(null);
+            if (principal == null) {
+                return 0L;
+            }
+            return onboardingRepository.findByPrincipalId(principal.getPrincipalId())
+                    .map(DeviceOnboarding::getSecurityVersion)
+                    .orElse(0L);
+        } catch (Exception e) {
+            log.warn("安全状态版本读取失败（以0兜底）: uid={}", ViamUtils.sha256Hex(uid), e);
+            return 0L;
+        }
     }
 
     private DecisionAudit evaluate(DeviceAdmissionCheckVo request, String decisionId, Instant decisionAt,

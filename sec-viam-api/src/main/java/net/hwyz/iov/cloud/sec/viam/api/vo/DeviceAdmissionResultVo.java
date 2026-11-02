@@ -49,6 +49,9 @@ public class DeviceAdmissionResultVo {
     /** 绑定版本（ALLOW 必填） */
     private Long bindVersion;
 
+    /** 安全状态版本（会话授权时快照；VAGW 记录于会话，供乱序失效事件判定） */
+    private long securityVersion;
+
     /** 事实更新时间：max(binding.lastEventTime, tbox.modifyTime, certificate.checkedAt) */
     private Instant updatedAt;
 
