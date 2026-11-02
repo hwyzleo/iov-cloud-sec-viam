@@ -5,8 +5,9 @@
 -- ============================================================================
 
 -- ================= tb_viam_onboarding 增加安全状态版本（block/unblock/retire 单调递增） =================
+-- MySQL 8.0 不支持 ADD COLUMN IF NOT EXISTS（Druid WallFilter 亦拒绝解析），使用标准 ALTER。
 ALTER TABLE `tb_viam_onboarding`
-  ADD COLUMN IF NOT EXISTS `security_version` bigint DEFAULT '0' COMMENT '安全状态版本（安全状态变更单调递增；失效事件携带）' AFTER `activate_version`;
+  ADD COLUMN `security_version` bigint DEFAULT '0' COMMENT '安全状态版本（安全状态变更单调递增；失效事件携带）' AFTER `activate_version`;
 
 -- ================= 访问失效执行跟踪（可变状态：回执/重试/超时/对账） =================
 CREATE TABLE IF NOT EXISTS `tb_viam_access_invalidation` (
