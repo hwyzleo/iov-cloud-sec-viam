@@ -1,40 +1,47 @@
 package net.hwyz.iov.cloud.sec.viam.service.application.service.keyprov;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.framework.security.crypto.ImportProofCapability;
 import net.hwyz.iov.cloud.framework.security.crypto.model.importproof.ImportProofAlgorithm;
 import net.hwyz.iov.cloud.framework.security.crypto.model.importproof.ImportProofVerificationRequest;
 import net.hwyz.iov.cloud.framework.security.crypto.model.importproof.VerifiedImportProof;
-import net.hwyz.iov.cloud.framework.security.crypto.model.KeyPurpose;
 import net.hwyz.iov.cloud.framework.security.crypto.resolver.DeviceCertificateRef;
 import net.hwyz.iov.cloud.sec.viam.api.constant.ViamErrorCode;
 import net.hwyz.iov.cloud.sec.viam.service.common.exception.ViamServiceException;
 import net.hwyz.iov.cloud.sec.viam.service.domain.model.entity.CredentialEnrollment;
 import net.hwyz.iov.security.keyprov.v1.KeyImportItemResult;
 import net.hwyz.iov.security.keyprov.v1.WrappedKeyItem;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
 
 /**
- * 设备导入证明（ImportProof）真实验签校验（迁入 VMD/framework 既有能力）。
+ * 设备导入证明（ImportProof）真实验签校验（SEC-VIAM-DSN-CR-001 / G-2）。
  * <p>
  * 使用 framework {@link net.hwyz.iov.cloud.framework.security.crypto.ImportProofVerifier}
  * （ECDSA-P256）校验 ACK 中每个 item 的 importProof；设备叶子证书经
  * {@code crypto.pki.certificate-resolution} 解析并校验信任链/状态（fail-closed）。
- * 任何不确定/异常一律拒绝 ACK，不把校验失败伪装为成功。
+ * <p>
+ * framework 验签器受 {@code crypto.import-proof.enabled} 条件门禁（默认 false）：
+ * 本组件以 {@link ObjectProvider} 可选装配，能力未启用<b>不阻断应用启动</b>；
+ * ACK 验签时能力缺失 → KEYPROV_IMPORT_PROOF_VERIFICATION_FAILED（fail-closed），
+ * 与 Keyprov 整体为门禁能力（{@code viam.crypto.provisioning.enabled=false} → UNAVAILABLE）一致。
  * </p>
  *
  * @author hwyz_leo
  */
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class ImportProofVerifier {
 
-    private final net.hwyz.iov.cloud.framework.security.crypto.ImportProofVerifier frameworkVerifier;
+    private final ObjectProvider<net.hwyz.iov.cloud.framework.security.crypto.ImportProofVerifier> verifierProvider;
+
+    public ImportProofVerifier(
+            ObjectProvider<net.hwyz.iov.cloud.framework.security.crypto.ImportProofVerifier> verifierProvider) {
+        this.verifierProvider = verifierProvider;
+    }
 
     /**
      * 校验 ACK 全部 item 的导入证明。
@@ -54,9 +61,10 @@ public class ImportProofVerifier {
             throw new ViamServiceException(ViamErrorCode.KEYPROV_IMPORT_PROOF_VERIFICATION_FAILED,
                     "设备叶子证书登记缺失，无法验签");
         }
-        if (!ImportProofCapability.supports(ImportProofCapability.IMPORT_PROOF_VERIFY_ECDSA_P256_V1)) {
+        net.hwyz.iov.cloud.framework.security.crypto.ImportProofVerifier verifier = verifierProvider.getIfAvailable();
+        if (verifier == null || !ImportProofCapability.supports(ImportProofCapability.IMPORT_PROOF_VERIFY_ECDSA_P256_V1)) {
             throw new ViamServiceException(ViamErrorCode.KEYPROV_IMPORT_PROOF_VERIFICATION_FAILED,
-                    "ImportProof 能力未装配（viam.crypto.import-proof.enabled=false）");
+                    "ImportProof 能力未装配（viam.crypto.import-proof.enabled=false），ACK 验签 fail-closed");
         }
         DeviceCertificateRef certRef = DeviceCertificateRef.ofSerial(certificate.getCertSn());
         byte[] expectedCertDigest = certificate.getLeafCertificateDigest();
@@ -79,12 +87,12 @@ public class ImportProofVerifier {
                     expectedCertDigest,
                     requestId,
                     businessDomain,
-                    KeyPurpose.valueOf(purposeCode),
+                    net.hwyz.iov.cloud.framework.security.crypto.model.KeyPurpose.valueOf(purposeCode),
                     delivered.getKeyId(),
                     delivered.getBusinessKeyVersion(),
                     delivered.getEnvelopeDigest().toByteArray(),
                     delivered.getKeyCheckValue().toByteArray());
-            VerifiedImportProof proof = frameworkVerifier.verify(req);
+            VerifiedImportProof proof = verifier.verify(req);
             verified.put(purposeCode, proof);
         }
         return verified;

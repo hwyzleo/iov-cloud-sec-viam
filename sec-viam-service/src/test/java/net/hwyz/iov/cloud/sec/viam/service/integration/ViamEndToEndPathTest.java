@@ -154,7 +154,8 @@ class ViamEndToEndPathTest {
                     return new VerifiedImportProof(ImportProofAlgorithm.ECDSA_P256_SHA256_P1363,
                             req.expectedCertificateDigest(), req.purpose(), req.envelopeDigest(), Instant.now());
                 });
-        ImportProofVerifier importProofVerifier = new ImportProofVerifier(frameworkImportProofVerifier);
+        ImportProofVerifier importProofVerifier =
+                new ImportProofVerifier(provider(() -> frameworkImportProofVerifier));
 
         keyprovAppService = new BusinessKeyProvisioningAppService(
                 principalRepo, mappingRepo, onboardingRepo, businessKeyRepo, batchRepo, credentialRepo,
