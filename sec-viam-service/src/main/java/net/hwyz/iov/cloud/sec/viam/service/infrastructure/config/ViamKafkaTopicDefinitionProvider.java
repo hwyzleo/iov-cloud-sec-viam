@@ -53,6 +53,9 @@ public class ViamKafkaTopicDefinitionProvider implements KafkaTopicDefinitionPro
                         provisioningProperties.configs()),
                 new KafkaTopicDefinition(topicProperties.getTboxV2cKeyProvisioned(),
                         provisioningProperties.getPartitions(), provisioningProperties.getReplicationFactor(),
+                        provisioningProperties.configs()),
+                new KafkaTopicDefinition(topicProperties.getAccessInvalidated(),
+                        provisioningProperties.getPartitions(), provisioningProperties.getReplicationFactor(),
                         provisioningProperties.configs()));
     }
 }

@@ -14,4 +14,7 @@ import org.apache.ibatis.annotations.Param;
 public interface ProvisioningBatchMapper extends BaseDao<ProvisioningBatchPo, Long> {
 
     ProvisioningBatchPo selectByRequestId(@Param("requestId") String requestId);
+
+    /** 行锁读取（KL1 租约签发/ACK 线性化；调用方须在事务内） */
+    ProvisioningBatchPo selectByRequestIdForUpdate(@Param("requestId") String requestId);
 }

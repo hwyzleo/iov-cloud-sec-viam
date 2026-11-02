@@ -30,6 +30,7 @@ public final class DeviceOnboardingConverter {
                 .blockReason(entity.getBlockReason())
                 .blockEffectiveAt(toLdt(entity.getBlockEffectiveAt()))
                 .activateVersion(entity.getActivateVersion())
+                .securityVersion(entity.getSecurityVersion())
                 .build();
     }
 
@@ -49,6 +50,7 @@ public final class DeviceOnboardingConverter {
                 .blockReason(po.getBlockReason())
                 .blockEffectiveAt(toInstant(po.getBlockEffectiveAt()))
                 .activateVersion(po.getActivateVersion())
+                .securityVersion(po.getSecurityVersion())
                 .build();
     }
 

@@ -44,6 +44,25 @@ crypto:
 
 # VIAM 业务配置
 viam:
+  # 服务身份认证（G-4）：VAGW/OAPI 访问 /api/service/** 必须携带签名头；
+  # Secret 经环境变量注入（Base64，禁止 Nacos/日志）；keyId 支持轮换。
+  security:
+    service-identity:
+      enabled: ${VIAM_SERVICE_IDENTITY_ENABLED:true}
+      audience: ${VIAM_SERVICE_IDENTITY_AUDIENCE:sec-viam}
+      timestamp-window-seconds: ${VIAM_SERVICE_IDENTITY_TIMESTAMP_WINDOW_SECONDS:300}
+      # 每调用方当前 keyId
+      current-key-ids:
+        VAGW: ${VIAM_SERVICE_CURRENT_KEY_ID_VAGW:k1}
+      # 每调用方多版本 Secret（Base64）；轮换时新增 keyId 版本，旧版本共存至滚动完成
+      secrets:
+        VAGW:
+          k1: ${VIAM_SERVICE_SECRET_VAGW_K1:}
+      # 每调用方接口权限（路径前缀）；VAGW 覆盖全部已迁服务端点
+      access:
+        VAGW:
+          - /api/service/
+      unauthenticated-prefixes: ${VIAM_SERVICE_IDENTITY_UNAUTH_PREFIXES:}
   # 成功接入证据门禁（D-VIAM-007 / T01/T02）：缺失可信证据时不写成功登录、不推进 ACTIVATING
   login-evidence:
     # 是否接受 vagw.device.online 事件（VAGW 配套补齐 admissionDecisionId/等效证据前保持 false）
@@ -65,10 +84,18 @@ viam:
   onboarding:
     # 完整用途集（V2C 首期固定 UPLINK_AEAD + DOWNLINK_AEAD）
     full-purpose-set: ${VIAM_ONBOARDING_FULL_PURPOSE_SET:UPLINK_AEAD,DOWNLINK_AEAD}
+  # 访问失效（FR-VIAM-008 / T05 / G-3）：生效时限从安全状态提交时间（F）起算
+  access-invalidation:
+    # 生效时限（秒）；当前开发目标 30s，非已验证生产 SLA
+    effective-by-seconds: ${VIAM_ACCESS_INVALIDATION_EFFECTIVE_BY_SECONDS:30}
+    # 超时扫描间隔（毫秒）
+    timeout-scan-ms: ${VIAM_ACCESS_INVALIDATION_TIMEOUT_SCAN_MS:30000}
   kafka:
     topics:
       # 消费：VAGW 设备上线（输入）
       vagw-device-online: ${VIAM_KAFKA_TOPIC_VAGW_DEVICE_ONLINE:vagw.device.online}
+      # 发布（待登记新契约，schema/owner/ACL 登记后方可启用）
+      access-invalidated: ${VIAM_KAFKA_TOPIC_ACCESS_INVALIDATED:viam.access-invalidated}
       # 发布（待登记新契约，schema/owner/ACL 登记后方可启用）
       device-login-succeeded: ${VIAM_KAFKA_TOPIC_DEVICE_LOGIN_SUCCEEDED:viam.device.login-succeeded}
       device-onboarding-changed: ${VIAM_KAFKA_TOPIC_DEVICE_ONBOARDING_CHANGED:viam.device.onboarding.changed}

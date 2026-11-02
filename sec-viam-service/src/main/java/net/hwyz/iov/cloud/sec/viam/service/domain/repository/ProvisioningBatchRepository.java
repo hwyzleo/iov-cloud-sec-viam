@@ -19,6 +19,11 @@ public interface ProvisioningBatchRepository {
     Optional<ProvisioningBatch> findByRequestId(String requestId);
 
     /**
+     * 行锁读取（KL1 租约签发/ACK 线性化；调用方须在事务内）。
+     */
+    Optional<ProvisioningBatch> findByRequestIdForUpdate(String requestId);
+
+    /**
      * 保存批次（含明细）。
      */
     void save(ProvisioningBatch batch);

@@ -26,6 +26,9 @@ public class ViamKeyProvisioningResponse {
     /** 原 requestId（幂等/关联） */
     private String requestId;
 
+    /** 本次交付租约 messageId（KL1 新交付每次生成；同 messageId 传输重放保持原字节） */
+    private String messageId;
+
     /** canonical 下行 payload 类型；成功时为 security.keyprov.v1.KeyProvisioningResponse */
     private String payloadType;
 

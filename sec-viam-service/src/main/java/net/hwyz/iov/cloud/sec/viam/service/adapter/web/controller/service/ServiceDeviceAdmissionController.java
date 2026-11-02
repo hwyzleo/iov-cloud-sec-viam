@@ -6,6 +6,8 @@ import net.hwyz.iov.cloud.sec.viam.api.constant.ViamServiceConstants;
 import net.hwyz.iov.cloud.sec.viam.api.service.ViamDeviceAdmissionService;
 import net.hwyz.iov.cloud.sec.viam.api.vo.DeviceAdmissionCheckVo;
 import net.hwyz.iov.cloud.sec.viam.api.vo.DeviceAdmissionResultVo;
+import net.hwyz.iov.cloud.sec.viam.service.adapter.web.security.WorkloadContext;
+import net.hwyz.iov.cloud.sec.viam.service.adapter.web.security.WorkloadContextHolder;
 import net.hwyz.iov.cloud.sec.viam.service.application.service.DeviceAdmissionAppService;
 import net.hwyz.iov.cloud.sec.viam.service.common.util.ViamUtils;
 import org.springframework.validation.annotation.Validated;
@@ -19,6 +21,8 @@ import org.springframework.web.bind.annotation.RestController;
  * <p>
  * canonical 端点为 {@code POST /api/service/deviceAdmission/v1/decide}；
  * ALLOW 仅表示准入通过，不等于成功建链（成功接入以可信 connected 证据为准）。
+ * 调用方身份由 {@link WorkloadContextHolder}（验签后的 workload 身份）提供，
+ * 禁止请求体自报 caller（G-4）。
  * </p>
  *
  * @author hwyz_leo
@@ -29,15 +33,18 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping(ViamServiceConstants.DEVICE_ADMISSION_V1)
 public class ServiceDeviceAdmissionController implements ViamDeviceAdmissionService {
 
-    /** 调用方标识（审计） */
-    private static final String CALLER_VAGW = "VAGW";
-
     private final DeviceAdmissionAppService deviceAdmissionAppService;
 
     @Override
     @PostMapping("/decide")
     public DeviceAdmissionResultVo decide(@RequestBody @Validated DeviceAdmissionCheckVo request) {
-        log.info("VIAM准入裁决请求: uidDigest={}", ViamUtils.sha256Hex(request.getUid()));
-        return deviceAdmissionAppService.decide(request, CALLER_VAGW);
+        WorkloadContext caller = WorkloadContextHolder.get();
+        log.info("VIAM准入裁决请求: uidDigest={}, caller={}", ViamUtils.sha256Hex(request.getUid()),
+                caller == null ? "UNVERIFIED" : caller.clientId());
+        if (caller == null) {
+            throw new net.hwyz.iov.cloud.sec.viam.service.common.exception.ViamServiceException(
+                    net.hwyz.iov.cloud.sec.viam.api.constant.ViamErrorCode.SERVICE_IDENTITY_MISSING);
+        }
+        return deviceAdmissionAppService.decide(request, caller.clientId());
     }
 }

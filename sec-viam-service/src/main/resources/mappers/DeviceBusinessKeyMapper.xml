@@ -8,6 +8,13 @@
         LIMIT 1
     </select>
 
+    <select id="selectByKeyIdForUpdate" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.DeviceBusinessKeyPo">
+        SELECT * FROM tb_viam_device_business_key
+        WHERE key_id = #{keyId} AND row_valid = 1
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
     <select id="selectActiveByContext" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.DeviceBusinessKeyPo">
         SELECT * FROM tb_viam_device_business_key
         WHERE device_sn = #{deviceSn} AND business_domain = #{businessDomain}

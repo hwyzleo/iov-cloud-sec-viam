@@ -152,6 +152,9 @@ public class KeyProvisioningApplicationFacade {
         if (e instanceof net.hwyz.iov.cloud.sec.viam.service.common.exception.ViamServiceException vse) {
             return vse.getCode();
         }
+        if (e instanceof net.hwyz.iov.cloud.sec.viam.service.application.service.keyprov.KeyprovEnvelopeException) {
+            return ViamErrorCode.KEYPROV_ENVELOPE_INTEGRITY_FAILED.getCode();
+        }
         return ViamErrorCode.KEYPROV_REQUEST_INVALID.getCode();
     }
 

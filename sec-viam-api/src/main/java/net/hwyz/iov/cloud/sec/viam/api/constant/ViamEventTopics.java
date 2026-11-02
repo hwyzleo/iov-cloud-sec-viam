@@ -32,4 +32,7 @@ public final class ViamEventTopics {
 
     /** 消费端：VAGW 设备上线事件（输入，EDD-VAGW-DSN-CR-012） */
     public static final String VAGW_DEVICE_ONLINE = "vagw.device.online";
+
+    /** 访问失效触发事件（待登记新契约；VAGW 执行缓存/ACL 失效与实际断连并回执） */
+    public static final String ACCESS_INVALIDATED = "viam.access-invalidated";
 }

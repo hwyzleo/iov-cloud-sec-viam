@@ -33,4 +33,7 @@ public class ViamKafkaTopicProperties {
 
     @Value("${viam.kafka.topics.tbox-v2c-key-provisioned:viam.tbox-v2c-key-provisioned}")
     private String tboxV2cKeyProvisioned;
+
+    @Value("${viam.kafka.topics.access-invalidated:viam.access-invalidated}")
+    private String accessInvalidated;
 }

@@ -24,6 +24,9 @@ import java.time.Instant;
 @AllArgsConstructor
 public class KeyProvisioningLease {
 
+    /** 主键（DB 自增；插入后回填） */
+    private Long id;
+
     /** 批次外键 */
     private Long provisioningId;
 

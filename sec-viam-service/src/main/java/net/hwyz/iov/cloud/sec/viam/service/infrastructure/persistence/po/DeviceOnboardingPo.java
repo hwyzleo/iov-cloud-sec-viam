@@ -63,4 +63,7 @@ public class DeviceOnboardingPo extends BasePo {
 
     @TableField("activate_version")
     private long activateVersion;
+
+    @TableField("security_version")
+    private long securityVersion;
 }

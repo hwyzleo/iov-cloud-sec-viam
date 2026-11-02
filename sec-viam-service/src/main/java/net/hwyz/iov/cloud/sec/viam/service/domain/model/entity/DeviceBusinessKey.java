@@ -25,6 +25,9 @@ import java.time.Instant;
 @AllArgsConstructor
 public class DeviceBusinessKey {
 
+    /** 主键（DB 自增；插入后回填） */
+    private Long id;
+
     /** 设备实例序列号快照 */
     private String deviceSn;
 

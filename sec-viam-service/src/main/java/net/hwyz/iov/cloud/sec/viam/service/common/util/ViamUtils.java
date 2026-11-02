@@ -43,6 +43,21 @@ public final class ViamUtils {
     }
 
     /**
+     * SHA-256 hex 摘要（bytes 重载，用于 canonical payload 摘要）。
+     */
+    public static String sha256Hex(byte[] input) {
+        if (input == null) {
+            return null;
+        }
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(digest.digest(input));
+        } catch (Exception e) {
+            throw new IllegalStateException("SHA-256 unavailable", e);
+        }
+    }
+
+    /**
      * 生成准入裁决ID（幂等键）。
      */
     public static String newAdmissionDecisionId() {

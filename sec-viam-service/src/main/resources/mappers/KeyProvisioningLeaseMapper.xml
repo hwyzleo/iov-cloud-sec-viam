@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.mapper.KeyProvisioningLeaseMapper">
+
+    <select id="selectByProvisioningId" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.KeyProvisioningLeasePo">
+        SELECT * FROM tb_viam_keyprov_delivery_lease
+        WHERE provisioning_id = #{provisioningId} AND row_valid = 1
+        ORDER BY lease_seq ASC
+    </select>
+
+    <select id="selectByProvisioningAndSeq" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.KeyProvisioningLeasePo">
+        SELECT * FROM tb_viam_keyprov_delivery_lease
+        WHERE provisioning_id = #{provisioningId} AND lease_seq = #{leaseSeq} AND row_valid = 1
+        LIMIT 1
+    </select>
+
+    <select id="selectByMessageId" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.KeyProvisioningLeasePo">
+        SELECT * FROM tb_viam_keyprov_delivery_lease
+        WHERE message_id = #{messageId} AND row_valid = 1
+        LIMIT 1
+    </select>
+
+</mapper>

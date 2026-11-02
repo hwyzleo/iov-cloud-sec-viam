@@ -27,6 +27,16 @@ public interface DeviceBusinessKeyRepository {
     Optional<DeviceBusinessKey> findByRequestIdAndPurpose(String requestId, String purpose);
 
     /**
+     * 按主键查询。
+     */
+    Optional<DeviceBusinessKey> findById(Long id);
+
+    /**
+     * 行锁读取（claim-or-reuse；调用方须在事务内）。
+     */
+    Optional<DeviceBusinessKey> findByKeyIdForUpdate(String keyId);
+
+    /**
      * 保存。
      */
     void save(DeviceBusinessKey key);

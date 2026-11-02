@@ -15,6 +15,8 @@ public interface DeviceBusinessKeyMapper extends BaseDao<DeviceBusinessKeyPo, Lo
 
     DeviceBusinessKeyPo selectByKeyId(@Param("keyId") String keyId);
 
+    DeviceBusinessKeyPo selectByKeyIdForUpdate(@Param("keyId") String keyId);
+
     DeviceBusinessKeyPo selectActiveByContext(@Param("deviceSn") String deviceSn,
                                               @Param("businessDomain") String businessDomain,
                                               @Param("purpose") String purpose);

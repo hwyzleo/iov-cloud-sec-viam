@@ -39,6 +39,16 @@ public class DeviceBusinessKeyRepositoryImpl implements DeviceBusinessKeyReposit
     }
 
     @Override
+    public Optional<DeviceBusinessKey> findById(Long id) {
+        return Optional.ofNullable(DeviceBusinessKeyConverter.toEntity(mapper.selectPoById(id)));
+    }
+
+    @Override
+    public Optional<DeviceBusinessKey> findByKeyIdForUpdate(String keyId) {
+        return Optional.ofNullable(DeviceBusinessKeyConverter.toEntity(mapper.selectByKeyIdForUpdate(keyId)));
+    }
+
+    @Override
     public void save(DeviceBusinessKey key) {
         DeviceBusinessKeyPo po = DeviceBusinessKeyConverter.toPo(key);
         DeviceBusinessKeyPo existing = mapper.selectByRequestIdAndPurpose(key.getRequestId(), key.getPurpose());

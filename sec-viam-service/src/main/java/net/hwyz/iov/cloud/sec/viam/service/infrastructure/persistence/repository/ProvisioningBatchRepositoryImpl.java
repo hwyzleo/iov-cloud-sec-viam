@@ -34,6 +34,12 @@ public class ProvisioningBatchRepositoryImpl implements ProvisioningBatchReposit
     }
 
     @Override
+    public Optional<ProvisioningBatch> findByRequestIdForUpdate(String requestId) {
+        return Optional.ofNullable(
+                ProvisioningBatchConverter.toEntity(mapper.selectByRequestIdForUpdate(requestId)));
+    }
+
+    @Override
     public void save(ProvisioningBatch batch) {
         ProvisioningBatchPo po = ProvisioningBatchConverter.toPo(batch);
         ProvisioningBatchPo existing = mapper.selectByRequestId(batch.getRequestId());

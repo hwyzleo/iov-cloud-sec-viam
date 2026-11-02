@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.mapper.AccessInvalidationMapper">
+
+    <select id="selectByInvalidationId" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.AccessInvalidationPo">
+        SELECT * FROM tb_viam_access_invalidation
+        WHERE invalidation_id = #{invalidationId} AND row_valid = 1
+        LIMIT 1
+    </select>
+
+    <select id="selectPendingBefore" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.AccessInvalidationPo">
+        SELECT * FROM tb_viam_access_invalidation
+        WHERE status = 'PENDING' AND effective_by &lt;= #{now} AND row_valid = 1
+        ORDER BY effective_by ASC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

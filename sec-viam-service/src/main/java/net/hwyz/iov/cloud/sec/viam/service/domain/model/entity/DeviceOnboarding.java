@@ -58,6 +58,9 @@ public class DeviceOnboarding {
     /** 激活推进版本（幂等/乱序收敛） */
     private long activateVersion;
 
+    /** 安全状态版本（block/unblock/retire/吊销等每次安全状态变更单调递增；失效事件携带） */
+    private long securityVersion;
+
     /** 安全开通状态 */
     public enum OnboardingState {
         PRE_ACTIVE, ACTIVATING, ACTIVE, BLOCKED, RETIRED
@@ -102,7 +105,7 @@ public class DeviceOnboarding {
     }
 
     /**
-     * 安全封禁：ACTIVE/ACTIVATING/PRE_ACTIVE → BLOCKED。
+     * 安全封禁：ACTIVE/ACTIVATING/PRE_ACTIVE → BLOCKED；securityVersion 单调递增。
      */
     public void block(String reason, Instant effectiveAt) {
         if (state == OnboardingState.RETIRED) {
@@ -111,10 +114,12 @@ public class DeviceOnboarding {
         this.state = OnboardingState.BLOCKED;
         this.blockReason = reason;
         this.blockEffectiveAt = effectiveAt;
+        this.securityVersion++;
     }
 
     /**
-     * 恢复：BLOCKED → ACTIVATING（保留既有登录事实）。
+     * 恢复：BLOCKED → ACTIVATING（保留既有登录事实）；securityVersion 单调递增。
+     * <b>不复活旧 ACL/旧会话</b>：恢复仅允许重新认证/重新授权。
      */
     public void unblock() {
         if (state != OnboardingState.BLOCKED) {
@@ -123,5 +128,17 @@ public class DeviceOnboarding {
         this.state = lastLoginTime != null ? OnboardingState.ACTIVATING : OnboardingState.PRE_ACTIVE;
         this.blockReason = null;
         this.blockEffectiveAt = null;
+        this.securityVersion++;
+    }
+
+    /**
+     * 退役：ACTIVE/ACTIVATING/BLOCKED/PRE_ACTIVE → RETIRED（终态，不复活）；securityVersion 单调递增。
+     */
+    public void retire(String reason) {
+        if (state == OnboardingState.RETIRED) {
+            throw new IllegalStateException("已退役，终态不复活");
+        }
+        this.state = OnboardingState.RETIRED;
+        this.securityVersion++;
     }
 }

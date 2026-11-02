@@ -104,6 +104,9 @@ public enum ViamErrorCode implements ErrorCode {
     KEYPROV_TERMINAL_STATE_FROZEN("702413", "批次已进入终态，不得复活"),
     KEYPROV_PROVIDER_CALL_UNKNOWN("702414", "Provider调用结果未知，禁止自动重放，转对账"),
     KEYPROV_RESPONSE_FROZEN("702415", "响应已冻结（不可变内容摘要C），重放不得改变字节"),
+    KEYPROV_IMPORT_PROOF_VERIFICATION_FAILED("702416", "设备导入证明验签失败（ImportProof，fail-closed）"),
+    KEYPROV_ACK_TERMINAL_STATE("702417", "ACK到达终态批次：失败终态不复活；ACTIVE一致重复ACK幂等处理"),
+    KEYPROV_IMPORT_FAILED("702418", "设备导入失败（ImportResult非IMPORTED）"),
 
     // ================= 安全开通状态机（702500～702599） =================
     ONBOARDING_NOT_EXIST("702501", "设备安全开通状态不存在"),
@@ -121,7 +124,24 @@ public enum ViamErrorCode implements ErrorCode {
     RECONCILE_NOT_ALLOWED("702606", "当前状态不允许对账操作"),
     OPERATION_NOT_FOUND("702607", "操作记录不存在"),
     CONFIGURATION_INVALID("702608", "VIAM安全配置无效（fail-closed）"),
-    SECURITY_FACT_NOT_MODIFIABLE("702609", "安全事实不可人工修改（禁止改写登录时间/伪造成功）");
+    SECURITY_FACT_NOT_MODIFIABLE("702609", "安全事实不可人工修改（禁止改写登录时间/伪造成功）"),
+
+    // ================= 服务身份 / workload（702700～702709） =================
+    SERVICE_IDENTITY_MISSING("702700", "服务身份签名头缺失或不完整，拒绝访问"),
+    SERVICE_IDENTITY_FORBIDDEN("702701", "服务身份验签失败或Secret未配置，拒绝访问"),
+    SERVICE_IDENTITY_EXPIRED("702702", "服务身份时间戳超出有效窗口"),
+    SERVICE_IDENTITY_REPLAYED("702703", "服务身份nonce重放，拒绝访问"),
+    SERVICE_IDENTITY_AUDIENCE_MISMATCH("702704", "服务身份audience与目标服务不符"),
+    SERVICE_IDENTITY_PERMISSION_DENIED("702705", "服务身份有效但无权访问该接口"),
+
+    // ================= 访问失效 / 安全状态变更（702710～702719） =================
+    PRINCIPAL_BLOCK_NOT_ALLOWED("702710", "安全主体状态不允许封禁"),
+    PRINCIPAL_UNBLOCK_NOT_ALLOWED("702711", "安全主体状态不允许解除封禁"),
+    PRINCIPAL_RETIRE_NOT_ALLOWED("702712", "安全主体状态不允许退役"),
+    ACCESS_INVALIDATION_NOT_FOUND("702713", "访问失效执行记录不存在"),
+    ACCESS_INVALIDATION_EXECUTION_TIMEOUT("702714", "访问失效执行超时（生效时限内未确认）"),
+    ACCESS_INVALIDATION_RECEIPT_MISMATCH("702715", "访问失效执行回执与请求不一致"),
+    ACCESS_INVALIDATION_STALE_VERSION("702716", "访问失效事件版本落后于当前安全状态（乱序旧事件，忽略不执行）");
 
     private final String code;
     private final String message;
