@@ -58,6 +58,12 @@ public class AccessInvalidationReceiptService {
                 record.setReceiptState(receipt.getReceiptState());
                 record.setReceiptDetail(receipt.getDetail());
             }
+            case AccessInvalidationRecord.RECEIPT_STALE_IGNORED -> {
+                // 乱序旧事件被会话授权版本覆盖：不视为失败，标记 CANCELLED_STALE（不可再执行）
+                record.setStatus(AccessInvalidationRecord.STATUS_CANCELLED_STALE);
+                record.setReceiptState(receipt.getReceiptState());
+                record.setReceiptDetail(receipt.getDetail());
+            }
             case AccessInvalidationRecord.RECEIPT_FAILED_RETRY -> {
                 // 执行失败待重试：保持 PENDING，递增重试计数（由超时对账/调度继续观察）
                 record.setReceiptState(receipt.getReceiptState());

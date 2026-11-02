@@ -106,4 +106,7 @@ public class AccessInvalidationRecord {
     public static final String RECEIPT_SESSION_NOT_FOUND = "SESSION_NOT_FOUND";
     public static final String RECEIPT_FAILED_RETRY = "FAILED_RETRY";
     public static final String RECEIPT_ACCEPTED = "ACCEPTED";
+
+    /** 乱序旧事件被会话授权版本覆盖（VAGW 未执行；对应 CANCELLED_STALE） */
+    public static final String RECEIPT_STALE_IGNORED = "STALE_IGNORED";
 }
