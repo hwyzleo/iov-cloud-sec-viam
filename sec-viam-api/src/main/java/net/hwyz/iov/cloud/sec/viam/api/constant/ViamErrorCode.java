@@ -127,11 +127,8 @@ public enum ViamErrorCode implements ErrorCode {
     SECURITY_FACT_NOT_MODIFIABLE("702609", "安全事实不可人工修改（禁止改写登录时间/伪造成功）"),
 
     // ================= 服务身份 / workload（702700～702709） =================
-    SERVICE_IDENTITY_MISSING("702700", "服务身份签名头缺失或不完整，拒绝访问"),
-    SERVICE_IDENTITY_FORBIDDEN("702701", "服务身份验签失败或Secret未配置，拒绝访问"),
-    SERVICE_IDENTITY_EXPIRED("702702", "服务身份时间戳超出有效窗口"),
-    SERVICE_IDENTITY_REPLAYED("702703", "服务身份nonce重放，拒绝访问"),
-    SERVICE_IDENTITY_AUDIENCE_MISMATCH("702704", "服务身份audience与目标服务不符"),
+    SERVICE_IDENTITY_MISSING("702700", "服务身份头缺失、为空或多值歧义，拒绝访问"),
+    SERVICE_IDENTITY_FORBIDDEN("702701", "服务身份未知（X-Client-Id 未登记），拒绝访问"),
     SERVICE_IDENTITY_PERMISSION_DENIED("702705", "服务身份有效但无权访问该接口"),
 
     // ================= 访问失效 / 安全状态变更（702710～702719） =================

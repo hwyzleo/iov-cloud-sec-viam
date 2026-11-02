@@ -5,13 +5,14 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
- * 服务身份认证配置（G-4）。
+ * 服务身份映射与授权配置（SEC-VIAM-DSN-CR-001 / R1，G-4 平台内网信任链）。
  * <p>
- * 每调用方独立 Secret（Base64，经环境变量注入，禁止 Nacos/日志）；
- * keyId 支持轮换：{@code secrets.<clientId>.<keyId>} 多版本共存，新签名用 currentKeyId。
+ * 平台内网信任链：{@code X-Client-Id} 身份映射 + 受限网络可达性 + 外部网关边界 +
+ * 接口授权矩阵 + fail-closed。无 HMAC Secret / keyId / 时间戳窗口 / nonce。
  * </p>
  *
  * @author hwyz_leo
@@ -21,24 +22,12 @@ import java.util.Map;
 @ConfigurationProperties(prefix = "viam.security.service-identity")
 public class ServiceIdentityProperties {
 
-    /** 是否启用服务身份认证（生产必须 true；仅隔离测试环境可关闭，但关闭时不得开放真实安全写入） */
+    /** 是否启用服务身份映射与授权（真实入口默认 true；仅隔离测试环境可关闭，关闭时不得开放真实安全写入） */
     private boolean enabled = true;
 
-    /** 固定 audience（目标服务） */
-    private String audience = "sec-viam";
+    /** 每调用方允许的路径前缀（clientId → 前缀列表）；键集合即已登记调用方，缺失/空表示无任何服务接口权限 */
+    private Map<String, List<String>> access = new HashMap<>();
 
-    /** 时间戳有效窗口（秒） */
-    private long timestampWindowSeconds = 300;
-
-    /** 每调用方当前 keyId（clientId → keyId） */
-    private Map<String, String> currentKeyIds = new HashMap<>();
-
-    /** 每调用方多版本 Secret（clientId → keyId → Base64 Secret） */
-    private Map<String, Map<String, String>> secrets = new HashMap<>();
-
-    /** 每调用方允许的路径前缀（clientId → 前缀列表），空/缺失表示该调用方无任何服务接口权限 */
-    private Map<String, java.util.List<String>> access = new HashMap<>();
-
-    /** 跳过认证的健康/只读端点前缀（默认空；不得包含 /api/service/** 安全写入） */
-    private java.util.List<String> unauthenticatedPrefixes = java.util.List.of();
+    /** 跳过身份映射的健康/只读端点前缀（默认空；不得包含 /api/service/** 安全写入） */
+    private List<String> unauthenticatedPrefixes = List.of();
 }
