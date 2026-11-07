@@ -39,12 +39,8 @@ public class ServiceDeviceAdmissionController implements ViamDeviceAdmissionServ
     @PostMapping("/decide")
     public DeviceAdmissionResultVo decide(@RequestBody @Validated DeviceAdmissionCheckVo request) {
         WorkloadContext caller = WorkloadContextHolder.get();
-        log.info("VIAM准入裁决请求: uidDigest={}, caller={}", ViamUtils.sha256Hex(request.getUid()),
-                caller == null ? "UNVERIFIED" : caller.clientId());
-        if (caller == null) {
-            throw new net.hwyz.iov.cloud.sec.viam.service.common.exception.ViamServiceException(
-                    net.hwyz.iov.cloud.sec.viam.api.constant.ViamErrorCode.SERVICE_IDENTITY_MISSING);
-        }
-        return deviceAdmissionAppService.decide(request, caller.clientId());
+        String callerId = caller == null ? "UNKNOWN" : caller.clientId();
+        log.info("VIAM准入裁决请求: uidDigest={}, caller={}", ViamUtils.sha256Hex(request.getUid()), callerId);
+        return deviceAdmissionAppService.decide(request, callerId);
     }
 }

@@ -9,10 +9,11 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * 服务接口授权矩阵（SEC-VIAM-DSN-CR-001 / R1）。
+ * 服务调用方登记信息（SEC-VIAM-DSN-CR-001 / R1，内网互信修订 R2）。
  * <p>
- * 按调用方身份（clientId）+ 请求路径前缀判定接口权限；身份有效但越权访问一律拒绝。
- * 键集合即已登记调用方（VAGW/OAPI/MES），未登记 clientId 视为身份未知拒绝。
+ * 内网服务间互信：{@link ServiceIdentityInterceptor} 不再强制 X-Client-Id 映射与接口授权，
+ * 请求一律放行。本类保留 clientId→路径前缀登记矩阵供审计识别调用方身份；
+ * {@code requireAccess} 不再由拦截器调用，仅保留为可选的写端点策略与登记校验能力。
  * </p>
  *
  * @author hwyz_leo

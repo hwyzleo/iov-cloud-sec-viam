@@ -9,17 +9,16 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Vector;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * 服务身份映射与授权测试（SEC-VIAM-DSN-CR-001 / R1，G-4 平台内网信任链）
+ * 服务调用方登记与授权策略测试（SEC-VIAM-DSN-CR-001 / R1，内网互信修订 R2）
  * <p>
- * X-Client-Id 身份映射：缺失/空/多值歧义/未登记拒绝；已登记且路径允许放行；越权拒绝。
+ * 保留 clientId→路径前缀登记矩阵：登记识别、越权拒绝仍由 {@link ServiceAccessPolicy} 提供；
+ * 拦截器不再强制调用（内网互信），登记缺失/未知不再导致请求 403。
  * </p>
  *
  * @author hwyz_leo
@@ -45,7 +44,7 @@ class ServiceAccessPolicyTest {
     void missingOrBlankOrUnknownFails() {
         assertNull(policy.resolveClientId(null));
         assertNull(policy.resolveClientId("  "));
-        assertNull(policy.resolveClientId("ATTACKER")); // 未登记（内网冒充不在本层防御，但未登记身份不放行）
+        assertNull(policy.resolveClientId("ATTACKER")); // 未登记：登记仅供审计识别，不再拒绝请求
     }
 
     @Test
@@ -66,49 +65,5 @@ class ServiceAccessPolicyTest {
         ViamServiceException e = assertThrows(ViamServiceException.class,
                 () -> policy.requireAccess("OAPI_UNREGISTERED", "/api/service/deviceAdmission/v1/decide"));
         assertEquals(ViamErrorCode.SERVICE_IDENTITY_PERMISSION_DENIED.getCode(), e.getCode());
-    }
-
-    // ---- 拦截器行为（单头解析/歧义拒绝/上下文设置/清理） ----
-
-    @Test
-    void singleHeaderParsingRejectsAmbiguous() {
-        ServiceIdentityInterceptor interceptor = new ServiceIdentityInterceptor(
-                properties, policy, new com.fasterxml.jackson.databind.ObjectMapper());
-        HttpServletRequest request = headerRequest(Map.of(
-                CustomHeaders.CLIENT_ID, List.of("VAGW"),
-                "X-Dummy", List.of("a", "b")));
-        assertEquals("VAGW", interceptor.resolveClientId(request));
-        // 多值歧义 → null
-        assertNull(interceptor.resolveClientId(headerRequest(Map.of(
-                CustomHeaders.CLIENT_ID, List.of("VAGW", "VAGW")))));
-    }
-
-    @Test
-    void contextSetAndClearedAfterCompletion() {
-        WorkloadContextHolder.clear();
-        ServiceIdentityInterceptor interceptor = new ServiceIdentityInterceptor(
-                properties, policy, new com.fasterxml.jackson.databind.ObjectMapper());
-        HttpServletRequest request = headerRequest(Map.of(
-                CustomHeaders.CLIENT_ID, List.of("VAGW"),
-                "X-Dummy", List.of("a", "b")));
-        WorkloadContext context = interceptor.buildContext(request,
-                "/api/service/deviceAdmission/v1/decide");
-        assertTrue(context.clientId().equals("VAGW"));
-        WorkloadContextHolder.set(context);
-        assertEquals("VAGW", WorkloadContextHolder.get().clientId());
-        interceptor.afterCompletion(request, null, null, null);
-        assertNull(WorkloadContextHolder.get());
-    }
-
-    private HttpServletRequest headerRequest(Map<String, List<String>> headers) {
-        return new jakarta.servlet.http.HttpServletRequestWrapper(
-                new org.springframework.mock.web.MockHttpServletRequest()) {
-            @Override
-            public java.util.Enumeration<String> getHeaders(String name) {
-                List<String> values = headers.get(name);
-                return values == null ? java.util.Collections.emptyEnumeration()
-                        : new Vector<>(values).elements();
-            }
-        };
     }
 }

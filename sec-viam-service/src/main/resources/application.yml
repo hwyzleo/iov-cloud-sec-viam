@@ -44,12 +44,12 @@ crypto:
 
 # VIAM 业务配置
 viam:
-  # 服务身份映射与授权（CR-001 R1 / G-4 平台内网信任链）：/api/service/** 强制 X-Client-Id 身份映射
-  # 与接口授权；无 HMAC Secret。外部伪造由网关边界与受限网络可达性负责（部署核验）。
+  # 服务身份审计（内网互信，CR-001 R1 追加修订 R2）：/api/service/** 不做身份映射/接口授权强制，
+  # 请求一律放行；X-Client-Id 仅承载调用方自报身份供审计（WorkloadContext），缺失/未知不拒绝。
   security:
     service-identity:
       enabled: ${VIAM_SERVICE_IDENTITY_ENABLED:true}
-      # 每调用方接口权限（路径前缀）；键集合即已登记调用方（VAGW 覆盖全部已迁服务端点）
+      # 每调用方接口权限（路径前缀）保留为登记信息，供审计识别；不再由拦截器强制拒绝
       access:
         VAGW:
           - /api/service/
