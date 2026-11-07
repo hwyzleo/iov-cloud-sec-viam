@@ -7,6 +7,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
 import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 /**
  * VIAM 启动类（SEC-VIAM-DSN-CR-001）
@@ -15,6 +16,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
  */
 @Slf4j
 @EnableAsync
+@EnableScheduling
 @EnableCustomConfig
 @EnableDiscoveryClient
 @EnableCustomFeignClients

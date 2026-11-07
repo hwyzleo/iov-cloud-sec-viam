@@ -98,6 +98,16 @@ viam:
       cleanup-policy: ${VIAM_KAFKA_TOPIC_CLEANUP_POLICY:delete}
     readiness:
       gate-producer: ${VIAM_KAFKA_READINESS_GATE_PRODUCER:true}
+  # Outbox 发布端（SEC-VIAM-DSN-CR-001 / D-VIAM-008）：扫描 tb_viam_outbox 待发布事件到 Kafka；
+  # 默认启用（matchIfMissing=true）；topic 未登记/未就绪时由 readiness 门禁拦截，不硬发。
+  outbox:
+    relay:
+      enabled: ${VIAM_OUTBOX_RELAY_ENABLED:true}
+      scan-interval-ms: ${VIAM_OUTBOX_RELAY_SCAN_INTERVAL_MS:5000}
+      batch-size: ${VIAM_OUTBOX_RELAY_BATCH_SIZE:100}
+      max-retry: ${VIAM_OUTBOX_RELAY_MAX_RETRY:3}
+      retry-interval-seconds: ${VIAM_OUTBOX_RELAY_RETRY_INTERVAL_SECONDS:60}
+      publish-timeout-ms: ${VIAM_OUTBOX_RELAY_PUBLISH_TIMEOUT_MS:10000}
 
 # FW-MYSQL-DSN-CR-003：Mapper 语句完整性校验，VIAM 首批显式 fail——缺语句在业务流量前阻断启动（早失败）
 iov:
