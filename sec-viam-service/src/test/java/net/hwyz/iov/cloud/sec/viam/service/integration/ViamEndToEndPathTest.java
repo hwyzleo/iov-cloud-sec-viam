@@ -558,6 +558,18 @@ class ViamEndToEndPathTest {
         }
 
         @Override
+        public net.hwyz.iov.cloud.sec.viam.service.domain.model.query.CertificatePage page(
+                net.hwyz.iov.cloud.sec.viam.service.domain.model.query.CertificateQuery query) {
+            List<CredentialEnrollment> matched = enrollments.stream()
+                    .filter(e -> query.requestId() == null || query.requestId().equals(e.getRequestId()))
+                    .filter(e -> query.vin() == null || query.vin().equals(e.getVin()))
+                    .filter(e -> query.deviceSn() == null || query.deviceSn().equals(e.getDeviceSn()))
+                    .toList();
+            return new net.hwyz.iov.cloud.sec.viam.service.domain.model.query.CertificatePage(
+                    matched, matched.size());
+        }
+
+        @Override
         public void insert(CredentialEnrollment enrollment) {
             enrollments.add(enrollment);
         }
@@ -614,6 +626,23 @@ class ViamEndToEndPathTest {
         @Override
         public Optional<ProvisioningBatch> findByRequestIdForUpdate(String requestId) {
             return Optional.ofNullable(byReq.get(requestId));
+        }
+
+        @Override
+        public java.util.Optional<ProvisioningBatch> findOpenByDeviceSnAndDomain(String deviceSn,
+                                                                                String businessDomain) {
+            return byReq.values().stream()
+                    .filter(b -> deviceSn.equals(b.getDeviceSn()) && businessDomain.equals(b.getBusinessDomain()))
+                    .findFirst();
+        }
+
+        @Override
+        public java.util.List<ProvisioningBatch> listByDeviceSnAndDomain(String deviceSn, String businessDomain,
+                                                                        boolean includeTerminal, int limit) {
+            return byReq.values().stream()
+                    .filter(b -> deviceSn.equals(b.getDeviceSn()) && businessDomain.equals(b.getBusinessDomain()))
+                    .limit(limit)
+                    .toList();
         }
 
         @Override

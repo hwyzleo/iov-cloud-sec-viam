@@ -1,7 +1,10 @@
 package net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.repository;
 
 import lombok.RequiredArgsConstructor;
+import com.github.pagehelper.Page;
 import net.hwyz.iov.cloud.sec.viam.service.domain.model.entity.CredentialEnrollment;
+import net.hwyz.iov.cloud.sec.viam.service.domain.model.query.CertificatePage;
+import net.hwyz.iov.cloud.sec.viam.service.domain.model.query.CertificateQuery;
 import net.hwyz.iov.cloud.sec.viam.service.domain.repository.CredentialEnrollmentRepository;
 import net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.converter.CredentialEnrollmentConverter;
 import net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.mapper.CredentialEnrollmentMapper;
@@ -24,6 +27,10 @@ import java.util.stream.Collectors;
 public class CredentialEnrollmentRepositoryImpl implements CredentialEnrollmentRepository {
 
     private static final ZoneId UTC = ZoneId.of("UTC");
+
+    private static java.time.LocalDateTime toLdt(Instant instant) {
+        return instant == null ? null : java.time.LocalDateTime.ofInstant(instant, UTC);
+    }
 
     private final CredentialEnrollmentMapper mapper;
 
@@ -69,6 +76,19 @@ public class CredentialEnrollmentRepositoryImpl implements CredentialEnrollmentR
         return mapper.selectUpdatedAfter(java.time.LocalDateTime.ofInstant(updatedAfter, UTC), limit).stream()
                 .map(CredentialEnrollmentConverter::toEntity)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public CertificatePage page(CertificateQuery query) {
+        List<CredentialEnrollmentPo> pos = mapper.selectByQuery(
+                query.vin(), query.deviceSn(), query.certSn(), query.requestId(),
+                query.status(), query.sourceSystem(),
+                toLdt(query.beginTime()), toLdt(query.endTime()));
+        long total = pos instanceof Page<?> pageable ? pageable.getTotal() : pos.size();
+        List<CredentialEnrollment> items = pos.stream()
+                .map(CredentialEnrollmentConverter::toEntity)
+                .collect(Collectors.toList());
+        return new CertificatePage(items, total);
     }
 
     @Override

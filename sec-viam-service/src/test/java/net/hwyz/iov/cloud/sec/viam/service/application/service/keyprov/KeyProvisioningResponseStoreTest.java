@@ -134,6 +134,22 @@ class KeyProvisioningResponseStoreTest {
         }
 
         @Override
+        public java.util.Optional<ProvisioningBatch> findOpenByDeviceSnAndDomain(String deviceSn, String businessDomain) {
+            return byReq.values().stream()
+                    .filter(b -> deviceSn.equals(b.getDeviceSn()) && businessDomain.equals(b.getBusinessDomain()))
+                    .findFirst();
+        }
+
+        @Override
+        public java.util.List<ProvisioningBatch> listByDeviceSnAndDomain(String deviceSn, String businessDomain,
+                                                                        boolean includeTerminal, int limit) {
+            return byReq.values().stream()
+                    .filter(b -> deviceSn.equals(b.getDeviceSn()) && businessDomain.equals(b.getBusinessDomain()))
+                    .limit(limit)
+                    .toList();
+        }
+
+        @Override
         public void save(ProvisioningBatch batch) {
             if (batch.getId() == null) {
                 batch.setId(nextId++);

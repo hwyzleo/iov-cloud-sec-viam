@@ -19,6 +19,17 @@ public interface ProvisioningBatchRepository {
     Optional<ProvisioningBatch> findByRequestId(String requestId);
 
     /**
+     * 按设备SN + 业务域查未终结批次（open_flag=1）。
+     */
+    Optional<ProvisioningBatch> findOpenByDeviceSnAndDomain(String deviceSn, String businessDomain);
+
+    /**
+     * 按设备SN + 业务域列出批次（includeTerminal=false 时只含未终结批次）。
+     */
+    List<ProvisioningBatch> listByDeviceSnAndDomain(String deviceSn, String businessDomain,
+                                                    boolean includeTerminal, int limit);
+
+    /**
      * 行锁读取（KL1 租约签发/ACK 线性化；调用方须在事务内）。
      */
     Optional<ProvisioningBatch> findByRequestIdForUpdate(String requestId);

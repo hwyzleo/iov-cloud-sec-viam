@@ -74,6 +74,23 @@ public class CertEnrollmentAdapter {
     }
 
     /**
+     * 按 PKI 申请编号重取已签发证书（SEC-VIAM-DSN-CR-002 / D-VIAM-015）。
+     * <p>
+     * 只读操作：仅用于管理面「获取证书本体」，不改状态、不落库、不缓存。
+     * PKI 已不保留该申请材料时返回 null，由调用方给出明确失败，不伪造成功。
+     * </p>
+     *
+     * @param pkiRequestId PKI 申请编号
+     * @return 已签发证书（含叶子与链 DER），不可获取时为 null
+     */
+    public IssuedCertificate getCertificate(String pkiRequestId) {
+        if (pkiRequestId == null || pkiRequestId.isBlank()) {
+            return null;
+        }
+        return requireTemplate().getCertificate(pkiRequestId);
+    }
+
+    /**
      * 对账推进（getStatus/getCertificate）。
      */
     public void reconcile(CredentialEnrollment enrollment) {

@@ -71,6 +71,8 @@ public enum ViamErrorCode implements ErrorCode {
     CERTIFICATE_UID_BINDING_MISMATCH("702218", "签发后复验UID绑定不匹配，确定性拒绝"),
     CERTIFICATE_PUBLIC_KEY_BINDING_MISMATCH("702219", "签发后复验公钥绑定不匹配，确定性拒绝"),
     CERTIFICATE_MATERIAL_UNAVAILABLE("702220", "证书材料或依赖暂不可用（非确定性拒绝，保持ISSUING）"),
+    CERTIFICATE_MATERIAL_NOT_RETRIEVABLE("702221", "证书本体已不可再获取（超出结果保留期或已被清理）"),
+    EXPECTED_STATE_MISMATCH("702222", "期望状态或期望版本与当前不一致（并发变更），拒绝执行"),
 
     // ================= 业务密钥目录（702300～702399） =================
     BUSINESS_KEY_DEVICE_SESSION_MISMATCH("702301", "设备会话身份与请求deviceSn不一致"),

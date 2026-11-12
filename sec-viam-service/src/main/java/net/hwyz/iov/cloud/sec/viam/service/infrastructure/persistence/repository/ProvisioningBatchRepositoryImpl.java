@@ -40,6 +40,20 @@ public class ProvisioningBatchRepositoryImpl implements ProvisioningBatchReposit
     }
 
     @Override
+    public Optional<ProvisioningBatch> findOpenByDeviceSnAndDomain(String deviceSn, String businessDomain) {
+        return Optional.ofNullable(ProvisioningBatchConverter.toEntity(
+                mapper.selectOpenByDeviceSnAndDomain(deviceSn, businessDomain)));
+    }
+
+    @Override
+    public List<ProvisioningBatch> listByDeviceSnAndDomain(String deviceSn, String businessDomain,
+                                                          boolean includeTerminal, int limit) {
+        return mapper.selectByDeviceSnAndDomain(deviceSn, businessDomain, includeTerminal, limit).stream()
+                .map(ProvisioningBatchConverter::toEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public void save(ProvisioningBatch batch) {
         ProvisioningBatchPo po = ProvisioningBatchConverter.toPo(batch);
         ProvisioningBatchPo existing = mapper.selectByRequestId(batch.getRequestId());

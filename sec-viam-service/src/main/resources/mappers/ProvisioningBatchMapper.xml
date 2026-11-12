@@ -15,4 +15,24 @@
         FOR UPDATE
     </select>
 
+    <!-- SEC-VIAM-DSN-CR-002 / D-VIAM-017：按设备+域解析未终结批次（open_flag=1 生成列） -->
+    <select id="selectOpenByDeviceSnAndDomain" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.ProvisioningBatchPo">
+        SELECT * FROM tb_viam_business_key_provisioning
+        WHERE device_sn = #{deviceSn} AND business_domain = #{businessDomain}
+          AND open_flag = 1 AND row_valid = 1
+        LIMIT 1
+    </select>
+
+    <!-- SEC-VIAM-DSN-CR-002 / D-VIAM-017：按设备+域列出批次（含历史终结批次），发起时间倒序 -->
+    <select id="selectByDeviceSnAndDomain" resultType="net.hwyz.iov.cloud.sec.viam.service.infrastructure.persistence.po.ProvisioningBatchPo">
+        SELECT * FROM tb_viam_business_key_provisioning
+        WHERE device_sn = #{deviceSn} AND business_domain = #{businessDomain}
+          AND row_valid = 1
+        <if test="!includeTerminal">
+            AND open_flag = 1
+        </if>
+        ORDER BY id DESC
+        LIMIT #{limit}
+    </select>
+
 </mapper>

@@ -55,6 +55,7 @@ public final class ProvisioningBatchConverter {
             return null;
         }
         return ProvisioningBatch.builder()
+                .id(po.getId())
                 .requestId(po.getRequestId())
                 .requestDigest(po.getRequestDigest())
                 .ackDigest(po.getAckDigest())
@@ -81,6 +82,9 @@ public final class ProvisioningBatchConverter {
                 .startedAt(toInstant(po.getStartedAt()))
                 .acknowledgedAt(toInstant(po.getAcknowledgedAt()))
                 .completedAt(toInstant(po.getCompletedAt()))
+                // SEC-VIAM-DSN-CR-002 / D-VIAM-018：破坏性操作乐观锁锚点（只读回填，不参与写入）
+                .modifyTime(po.getModifyTime() == null ? null : po.getModifyTime().toInstant())
+                .rowVersion(po.getRowVersion())
                 .build();
     }
 

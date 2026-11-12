@@ -1,6 +1,8 @@
 package net.hwyz.iov.cloud.sec.viam.service.domain.repository;
 
 import net.hwyz.iov.cloud.sec.viam.service.domain.model.entity.CredentialEnrollment;
+import net.hwyz.iov.cloud.sec.viam.service.domain.model.query.CertificatePage;
+import net.hwyz.iov.cloud.sec.viam.service.domain.model.query.CertificateQuery;
 
 import java.time.Instant;
 import java.util.List;
@@ -17,6 +19,14 @@ public interface CredentialEnrollmentRepository {
      * 按 requestId 查询。
      */
     Optional<CredentialEnrollment> findByRequestId(String requestId);
+
+    /**
+     * 管理面多条件分页查询（SEC-VIAM-DSN-CR-002 / D-VIAM-012）。
+     * <p>
+     * 分页由调用方的 PageHelper 上下文控制；只返回有效行（row_valid=1）。
+     * </p>
+     */
+    CertificatePage page(CertificateQuery query);
 
     /**
      * 按证书序列号查询。

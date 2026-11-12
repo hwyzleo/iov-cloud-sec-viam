@@ -86,6 +86,18 @@ public class ProvisioningBatch {
     /** 逐用途明细 */
     private List<ProvisioningItem> items;
 
+    /**
+     * 修改时间（只读回填，供 MPT 破坏性操作作为期望版本锚点；不参与写入）。
+     * SEC-VIAM-DSN-CR-002 / D-VIAM-018。
+     */
+    private Instant modifyTime;
+
+    /**
+     * 记录版本（只读回填，乐观锁锚点；真正的 CAS 由仓储层 updateById 完成）。
+     * SEC-VIAM-DSN-CR-002 / D-VIAM-018。
+     */
+    private Integer rowVersion;
+
     /** 批次状态 */
     public enum BatchState {
         PREPARING, WAIT_DEVICE_ACK, COMPLETED, FAILED, RECONCILE_REQUIRED, EXPIRED
