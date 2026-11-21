@@ -348,6 +348,11 @@ class CertificateManagementAppServiceTest {
         }
 
         @Override
+        public List<CredentialEnrollment> listByHsmUid(String hsmUid) {
+            return enrollments.stream().filter(e -> hsmUid.equals(e.getHsmUid())).toList();
+        }
+
+        @Override
         public List<CredentialEnrollment> listUpdatedAfter(Instant updatedAfter, int limit) {
             return List.of();
         }

@@ -53,6 +53,9 @@ viam:
       access:
         VAGW:
           - /api/service/
+        # SEC-VIAM-DSN-CR-003：CIAM 设备令牌签发前调用设备证明校验（内网互信，不强制鉴权）
+        CIAM:
+          - /api/service/deviceProof/
       unauthenticated-prefixes: ${VIAM_SERVICE_IDENTITY_UNAUTH_PREFIXES:}
   # 成功接入证据门禁（D-VIAM-007 / T01/T02）：缺失可信证据时不写成功登录、不推进 ACTIVATING
   login-evidence:
@@ -75,6 +78,24 @@ viam:
   onboarding:
     # 完整用途集（V2C 首期固定 UPLINK_AEAD + DOWNLINK_AEAD）
     full-purpose-set: ${VIAM_ONBOARDING_FULL_PURPOSE_SET:UPLINK_AEAD,DOWNLINK_AEAD}
+  # 设备证明校验（SEC-VIAM-DSN-CR-003）：供 CIAM 设备令牌签发前取得认证结论；
+  # 只认证不签令牌、只读幂等、四类结论显式区分、依赖不可用 fail-closed。
+  device-proof:
+    # 能力开关：关闭时一律返回 DEPENDENCY_UNAVAILABLE（不返回通过）
+    enabled: ${VIAM_DEVICE_PROOF_ENABLED:true}
+    # nonce 一次性键有效期（Redis SETNX + TTL；消费后不回滚）
+    nonce-ttl: ${VIAM_DEVICE_PROOF_NONCE_TTL:PT2M}
+    rate-limit:
+      # 按调用方服务身份限流
+      per-caller-per-minute: ${VIAM_DEVICE_PROOF_RATE_CALLER_PER_MINUTE:60}
+      # 按设备维度限流（防证明爆破）
+      per-device-per-minute: ${VIAM_DEVICE_PROOF_RATE_DEVICE_PER_MINUTE:12}
+    verify:
+      # 单次校验总预算（含 PKI/Redis）；超出即 fail-closed
+      total-budget: ${VIAM_DEVICE_PROOF_TOTAL_BUDGET:PT1S}
+      # 吊销查询 OCSP 优先、CRL 兜底（由 framework PKI 证书状态能力执行）
+      ocsp-first: ${VIAM_DEVICE_PROOF_OCSP_FIRST:true}
+      crl-fallback: ${VIAM_DEVICE_PROOF_CRL_FALLBACK:true}
   # 访问失效（FR-VIAM-008 / T05 / G-3）：生效时限从安全状态提交时间（F）起算
   access-invalidation:
     # 生效时限（秒）；当前开发目标 30s，非已验证生产 SLA

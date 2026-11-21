@@ -38,4 +38,7 @@ public final class ViamServiceConstants {
     /** 成功接入记录（登录时间线） */
     public static final String DEVICE_LOGIN_V1 = SERVICE_BASE + "/deviceLogin/v1";
     public static final String ACCESS_INVALIDATION_V1 = SERVICE_BASE + "/accessInvalidation/v1";
+
+    /** 设备证明校验（SEC-VIAM-DSN-CR-003）：供 CIAM 设备令牌签发前的认证结论 */
+    public static final String DEVICE_PROOF_V1 = SERVICE_BASE + "/deviceProof/v1";
 }

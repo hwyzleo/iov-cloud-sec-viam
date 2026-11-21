@@ -379,6 +379,11 @@ class BusinessKeyGovernanceQueryAppServiceTest {
         }
 
         @Override
+        public List<CredentialEnrollment> listByHsmUid(String hsmUid) {
+            return List.of();
+        }
+
+        @Override
         public List<CredentialEnrollment> listUpdatedAfter(Instant updatedAfter, int limit) {
             return List.of();
         }

@@ -19,6 +19,9 @@ import net.hwyz.iov.cloud.framework.common.exception.ErrorCode;
  *   <li>702400～702499：Keyprov 开通批次 / ACK / 租约</li>
  *   <li>702500～702599：安全开通状态机（onboarding）</li>
  *   <li>702600～702699：审计 / 事件 / 幂等 / 对账</li>
+ *   <li>702700～702709：服务身份 / workload</li>
+ *   <li>702710～702719：访问失效 / 安全状态变更</li>
+ *   <li>702720～702729：设备证明校验（SEC-VIAM-DSN-CR-003）</li>
  * </ul>
  *
  * @author hwyz_leo
@@ -140,7 +143,15 @@ public enum ViamErrorCode implements ErrorCode {
     ACCESS_INVALIDATION_NOT_FOUND("702713", "访问失效执行记录不存在"),
     ACCESS_INVALIDATION_EXECUTION_TIMEOUT("702714", "访问失效执行超时（生效时限内未确认）"),
     ACCESS_INVALIDATION_RECEIPT_MISMATCH("702715", "访问失效执行回执与请求不一致"),
-    ACCESS_INVALIDATION_STALE_VERSION("702716", "访问失效事件版本落后于当前安全状态（乱序旧事件，忽略不执行）");
+    ACCESS_INVALIDATION_STALE_VERSION("702716", "访问失效事件版本落后于当前安全状态（乱序旧事件，忽略不执行）"),
+
+    // ================= 设备证明校验（702720～702729，SEC-VIAM-DSN-CR-003） =================
+    PROOF_VERIFY_PARAM_INVALID("702720", "设备证明参数非法（proofType/proof/nonce/deviceId 缺失或格式非法）"),
+    PROOF_INVALID("702721", "设备证明无效（证书链/有效期/吊销/指纹/签名校验失败）"),
+    PROOF_NONCE_REPLAYED("702722", "设备证明 nonce 重复（重放），已一次性消费"),
+    PROOF_SUBJECT_UNAVAILABLE("702723", "设备未登记、已安全封禁或已退役，证明主体不可用"),
+    PROOF_DEPENDENCY_UNAVAILABLE("702724", "设备证明依赖（PKI/Redis）不可用或超出总预算，fail-closed"),
+    PROOF_RATE_LIMITED("702725", "设备证明校验调用频次超限（按调用方/设备维度）");
 
     private final String code;
     private final String message;

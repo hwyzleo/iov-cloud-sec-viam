@@ -24,6 +24,9 @@
 # 当前项目数据库文档
 - 参考 Notion Page ID: 4160ec7a4b928053a459f6207a4b0426
 
+# 当前项目错误码文档
+- 参考 Notion Page ID: 41f0ec7a4b92806b8c6ed8e7631b1b94
+
 # graphify
 
 This project has a graphify knowledge graph at graphify-out/.

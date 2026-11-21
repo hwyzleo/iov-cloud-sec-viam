@@ -56,6 +56,11 @@ public interface CredentialEnrollmentRepository {
     List<CredentialEnrollment> listByDeviceSn(String deviceSn);
 
     /**
+     * 按 hsmUid 查询证书列表（SEC-VIAM-DSN-CR-003：KEY_SIGNATURE 设备定位）。
+     */
+    List<CredentialEnrollment> listByHsmUid(String hsmUid);
+
+    /**
      * 更新时间大于指定时间的证书列表（对账）。
      */
     List<CredentialEnrollment> listUpdatedAfter(Instant updatedAfter, int limit);

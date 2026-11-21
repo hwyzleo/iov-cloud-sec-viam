@@ -72,6 +72,13 @@ public class CredentialEnrollmentRepositoryImpl implements CredentialEnrollmentR
     }
 
     @Override
+    public List<CredentialEnrollment> listByHsmUid(String hsmUid) {
+        return mapper.selectByHsmUid(hsmUid).stream()
+                .map(CredentialEnrollmentConverter::toEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Override
     public List<CredentialEnrollment> listUpdatedAfter(Instant updatedAfter, int limit) {
         return mapper.selectUpdatedAfter(java.time.LocalDateTime.ofInstant(updatedAfter, UTC), limit).stream()
                 .map(CredentialEnrollmentConverter::toEntity)

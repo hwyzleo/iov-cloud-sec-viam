@@ -44,6 +44,24 @@ public class CertificateVerificationAdapter {
     public CertificateVerificationResult verify(String leafDerBase64, String certSerial, String certFingerprint,
                                                 Instant decisionAt) {
         byte[] der = java.util.Base64.getDecoder().decode(leafDerBase64);
+        return verify(der, certSerial, certFingerprint, decisionAt);
+    }
+
+    /**
+     * 校验叶子证书状态（DER 入参重载；SEC-VIAM-DSN-CR-003 证明校验复用）。
+     *
+     * @param der            本次实际叶子证书 DER
+     * @param certSerial     证书序列号（provider canonical form）
+     * @param certFingerprint 证书 SHA-256 指纹（小写 hex）
+     * @param decisionAt     校验时间
+     * @return 验证结果
+     * @throws ViamPkiDependencyUnavailable 依赖不可用/结果不确定（fail-closed）
+     */
+    public CertificateVerificationResult verify(byte[] der, String certSerial, String certFingerprint,
+                                                Instant decisionAt) {
+        if (der == null) {
+            throw new ViamPkiDependencyUnavailable("叶子证书DER为空");
+        }
         if (der.length == 0 || der.length > 8 * 1024) {
             throw new ViamPkiDependencyUnavailable("叶子证书DER为空或超过8KiB上限");
         }

@@ -34,6 +34,8 @@ public interface CredentialEnrollmentMapper extends BaseMapper<CredentialEnrollm
 
     List<CredentialEnrollmentPo> selectByDeviceSn(@Param("deviceSn") String deviceSn);
 
+    List<CredentialEnrollmentPo> selectByHsmUid(@Param("hsmUid") String hsmUid);
+
     List<CredentialEnrollmentPo> selectUpdatedAfter(@Param("updatedAfter") LocalDateTime updatedAfter,
                                                     @Param("limit") int limit);
 
