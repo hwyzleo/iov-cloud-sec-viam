@@ -10,6 +10,7 @@ import net.hwyz.iov.cloud.sec.viam.api.vo.CertificateOperationResultVo;
 import net.hwyz.iov.cloud.sec.viam.api.vo.CertificateReconcileVo;
 import net.hwyz.iov.cloud.sec.viam.api.vo.CertificateReissueVo;
 import net.hwyz.iov.cloud.sec.viam.service.common.exception.ViamServiceException;
+import net.hwyz.iov.cloud.sec.viam.service.common.util.CsrTestSupport;
 import net.hwyz.iov.cloud.sec.viam.service.domain.model.entity.CertificateOperation;
 import net.hwyz.iov.cloud.sec.viam.service.domain.model.entity.CredentialEnrollment;
 import net.hwyz.iov.cloud.sec.viam.service.domain.model.entity.PrincipalAssetMapping;
@@ -259,7 +260,7 @@ class CertificateManagementAppServiceTest {
     private static CertificateCompensateVo compensateVo(String requestId) {
         return CertificateCompensateVo.builder()
                 .vin("VIN1").deviceCategory("TBOX").deviceSn("SN-1")
-                .certificateProfile("TBOX_TSP_CLIENT").csrDerBase64("CSRDATA")
+                .certificateProfile("TBOX_TSP_CLIENT").csrDerBase64(CsrTestSupport.csr("UID-1"))
                 .requestId(requestId).ticketNo("T-1").reason("MES未达").build();
     }
 

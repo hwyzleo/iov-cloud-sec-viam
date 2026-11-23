@@ -17,6 +17,8 @@ import net.hwyz.iov.cloud.sec.viam.api.vo.CertificateReconcileVo;
 import net.hwyz.iov.cloud.sec.viam.api.vo.CertificateReissueVo;
 import net.hwyz.iov.cloud.sec.viam.api.vo.CertificateStatusVo;
 import net.hwyz.iov.cloud.sec.viam.service.common.exception.ViamServiceException;
+import net.hwyz.iov.cloud.sec.viam.service.common.util.CertificateCompensationPolicy;
+import net.hwyz.iov.cloud.sec.viam.service.common.util.CertificateCsrValidator;
 import net.hwyz.iov.cloud.sec.viam.service.common.util.ViamUtils;
 import net.hwyz.iov.cloud.sec.viam.service.domain.model.entity.CertificateOperation;
 import net.hwyz.iov.cloud.sec.viam.service.domain.model.entity.CredentialEnrollment;
@@ -103,6 +105,7 @@ public class CertificateProvisioningAppService {
                 .ticketNo(cmd.getTicketNo())
                 .facilityNo(cmd.getFacilityNo())
                 .lineCode(cmd.getLineCode())
+                .csrFingerprint(CertificateCsrValidator.fingerprintOrRaw(cmd.getCsrDerBase64()))
                 .build();
         try {
             enrollmentRepository.insert(enrollment);
@@ -121,6 +124,12 @@ public class CertificateProvisioningAppService {
             log.warn("证书申请结果未知，转待对账: requestId={}", cmd.getRequestId());
             enrollment.markPendingReconcile(e.getMessage());
             enrollmentRepository.update(enrollment);
+        } catch (net.hwyz.iov.cloud.framework.security.crypto.exception.CertificateProfileNotAllowedException e) {
+            log.error("证书Profile未被framework允许: requestId={}, profile={}",
+                    cmd.getRequestId(), cmd.getCertificateProfile());
+            enrollment.markFailed(e.getMessage());
+            enrollmentRepository.update(enrollment);
+            throw new ViamServiceException(ViamErrorCode.CERTIFICATE_PROFILE_NOT_ALLOWED);
         } catch (Exception e) {
             log.error("证书申请失败: requestId={}", cmd.getRequestId(), e);
             enrollment.markFailed(e.getMessage());
@@ -322,28 +331,62 @@ public class CertificateProvisioningAppService {
     }
 
     /**
-     * 人工补申请（MES 请求未达场景；D-VIAM-014）。
+     * 人工补申请（MES 请求未达场景；D-VIAM-014 / CR-004：D-VIAM-023/024/027）。
      * <p>
-     * 后台不生成设备密钥或 CSR；主体由受信资产映射反查，不采信客户端自报 UID。
+     * 后台不生成设备密钥或 CSR；进入 PKI 前依次执行：类别—Profile 固定组合（702207）、
+     * requestId 内容幂等（702215）、deviceSn→ACTIVE 映射与 VIN/类别一致性（702202/702203）、
+     * 主体 ACTIVE（fail-closed）、CSR 唯一 CN=目标 hsmUid、无 VIN、自签名有效
+     * （702204/702205/702206）。TBOX 与 IVI 使用同一套规则，不采信客户端自报 UID/VIN/类别。
      * </p>
      */
     @Transactional(rollbackFor = Exception.class)
     public CertificateOperationResultVo compensate(CertificateCompensateVo cmd, String operatorId,
                                                    String operationName, String sourceIp, String userAgent) {
+        // D-VIAM-023：类别—Profile 固定组合（规范化后精确匹配），其他/交叉组合进入 PKI 前拒绝（702207）
+        String deviceCategory = CertificateCompensationPolicy.normalize(cmd.getDeviceCategory());
+        String certificateProfile = CertificateCompensationPolicy.normalize(cmd.getCertificateProfile());
+        if (!CertificateCompensationPolicy.isAllowed(deviceCategory, certificateProfile)) {
+            throw new ViamServiceException(ViamErrorCode.CERTIFICATE_PROFILE_NOT_ALLOWED,
+                    "类别与Profile组合不允许: deviceCategory=" + deviceCategory
+                            + ", certificateProfile=" + certificateProfile);
+        }
+
         String requestId = notBlank(cmd.getRequestId()) ? cmd.getRequestId()
                 : "MPT-CERT-" + UUID.randomUUID();
-        boolean existedBefore = enrollmentRepository.findByRequestId(requestId).isPresent();
+        // D-VIAM-027：同 requestId 同内容返回既有结果；不同内容 702215（CSR 指纹复用既有列，无 DDL）
+        String csrFingerprint = CertificateCsrValidator.fingerprintOrRaw(cmd.getCsrDerBase64());
+        CredentialEnrollment existing = enrollmentRepository.findByRequestId(requestId).orElse(null);
+        boolean existedBefore = existing != null;
+        if (existing != null) {
+            assertSameRequestContent(existing, cmd, deviceCategory, certificateProfile, csrFingerprint);
+        }
 
-        // 受信主体解析：设备SN → ACTIVE 资产映射 → 安全主体（不得仅信自报 UID）
-        SecurityPrincipal principal = resolvePrincipalByDeviceSn(cmd.getDeviceSn());
+        // D-VIAM-024：deviceSn → ACTIVE 映射 → ACTIVE 主体，并比对请求 VIN/类别（不得仅信自报）
+        PrincipalAssetMapping mapping = assetMappingRepository.findActiveByDeviceSn(cmd.getDeviceSn())
+                .orElseThrow(() -> new ViamServiceException(ViamErrorCode.CERTIFICATE_DEVICE_NOT_BOUND));
+        if (!sameValue(mapping.getVin(), cmd.getVin())) {
+            throw new ViamServiceException(ViamErrorCode.CERTIFICATE_DEVICE_NOT_BOUND,
+                    "请求VIN与ACTIVE资产映射不一致");
+        }
+        if (!sameValue(CertificateCompensationPolicy.normalize(mapping.getDeviceCategory()), deviceCategory)) {
+            throw new ViamServiceException(ViamErrorCode.CERTIFICATE_DEVICE_CATEGORY_MISMATCH);
+        }
+        SecurityPrincipal principal = principalRepository.findByPrincipalId(mapping.getPrincipalId())
+                .orElseThrow(() -> new ViamServiceException(ViamErrorCode.PRINCIPAL_UID_UNAVAILABLE));
+        if (principal.getState() != SecurityPrincipal.PrincipalState.ACTIVE) {
+            throw new ViamServiceException(ViamErrorCode.PRINCIPAL_UID_UNAVAILABLE);
+        }
+
+        // CSR 门禁：DER/自签名（702204）、唯一 CN=目标 hsmUid（702205）、不含 VIN（702206）
+        CertificateCsrValidator.validate(cmd.getCsrDerBase64(), principal.getHsmUid(), cmd.getVin());
 
         CertificateApplyVo applyCmd = CertificateApplyVo.builder()
                 .requestId(requestId)
                 .vin(cmd.getVin())
-                .deviceCategory(cmd.getDeviceCategory())
+                .deviceCategory(deviceCategory)
                 .deviceSn(cmd.getDeviceSn())
                 .ecuUid(principal.getHsmUid())
-                .certificateProfile(cmd.getCertificateProfile())
+                .certificateProfile(certificateProfile)
                 .csrDerBase64(cmd.getCsrDerBase64())
                 .sourceSystem("MPT_COMPENSATION")
                 .originalRequestId(cmd.getOriginalRequestId())
@@ -492,17 +535,31 @@ public class CertificateProvisioningAppService {
     }
 
     /**
-     * 按设备SN解析受信安全主体（资产映射 → 主体；状态必须 ACTIVE）。
+     * 幂等内容比对：同 requestId 的申请内容（VIN/类别/SN/Profile/CSR 指纹）不一致时 702215。
+     * <p>
+     * 既有历史行 `csr_fingerprint` 可能为空，此时只比对主体字段以兼容存量数据；不代表可放宽 CSR 门禁。
+     * </p>
      */
-    private SecurityPrincipal resolvePrincipalByDeviceSn(String deviceSn) {
-        PrincipalAssetMapping mapping = assetMappingRepository.findActiveByDeviceSn(deviceSn)
-                .orElseThrow(() -> new ViamServiceException(ViamErrorCode.CERTIFICATE_DEVICE_NOT_BOUND));
-        SecurityPrincipal principal = principalRepository.findByPrincipalId(mapping.getPrincipalId())
-                .orElseThrow(() -> new ViamServiceException(ViamErrorCode.PRINCIPAL_UID_UNAVAILABLE));
-        if (principal.getState() != SecurityPrincipal.PrincipalState.ACTIVE) {
-            throw new ViamServiceException(ViamErrorCode.PRINCIPAL_UID_UNAVAILABLE);
+    private static void assertSameRequestContent(CredentialEnrollment existing, CertificateCompensateVo cmd,
+                                                 String deviceCategory, String certificateProfile,
+                                                 String csrFingerprint) {
+        boolean same = sameValue(existing.getVin(), cmd.getVin())
+                && sameValue(CertificateCompensationPolicy.normalize(existing.getDeviceCategory()), deviceCategory)
+                && sameValue(existing.getDeviceSn(), cmd.getDeviceSn())
+                && sameValue(CertificateCompensationPolicy.normalize(existing.getCertificateProfile()),
+                certificateProfile)
+                && (existing.getCsrFingerprint() == null
+                || existing.getCsrFingerprint().equalsIgnoreCase(csrFingerprint));
+        if (!same) {
+            throw new ViamServiceException(ViamErrorCode.CERTIFICATE_REQUEST_IDEMPOTENCY_CONFLICT);
         }
-        return principal;
+    }
+
+    /**
+     * 大小写不敏感的非空值相等判断（VIN/类别/Profile/SN 等标识类字段）。
+     */
+    private static boolean sameValue(String left, String right) {
+        return left != null && right != null && left.trim().equalsIgnoreCase(right.trim());
     }
 
     private CertificateListItemVo toListItem(CredentialEnrollment e) {
