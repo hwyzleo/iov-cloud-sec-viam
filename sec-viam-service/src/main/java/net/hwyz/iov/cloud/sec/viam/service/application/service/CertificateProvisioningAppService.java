@@ -120,6 +120,9 @@ public class CertificateProvisioningAppService {
         // 5. 调用 FW-SEC 证书注册模板申请（事务外；结果未知转 PENDING_RECONCILE）
         try {
             certEnrollmentAdapter.apply(enrollment, cmd.getCsrDerBase64());
+            // 适配器只改内存对象：成功/拒绝/未知的 PKI 结果均需落库，否则 DB 永停 REQUESTED
+            // （将导致无法 confirmInstalled：其状态门禁要求 ISSUED_NOT_CONFIRMED/INSTALL_FAILED）
+            enrollmentRepository.update(enrollment);
         } catch (net.hwyz.iov.cloud.framework.security.crypto.exception.PkiOutcomeUnknownException e) {
             log.warn("证书申请结果未知，转待对账: requestId={}", cmd.getRequestId());
             enrollment.markPendingReconcile(e.getMessage());
