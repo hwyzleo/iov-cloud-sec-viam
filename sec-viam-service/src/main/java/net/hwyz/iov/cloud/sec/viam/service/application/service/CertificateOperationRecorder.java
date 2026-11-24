@@ -96,7 +96,9 @@ public class CertificateOperationRecorder {
      * 操作ID = requestId:action:时间戳（唯一，不依赖外部自报）。
      */
     private String newOperationId(String requestId, CertificateOperation.Action action, Instant now) {
-        return requestId + ":" + action + ":" + now.toEpochMilli();
+        // operation_id 列宽 varchar(64)：requestId(45)+action(10)+毫秒(13)+分隔符 会溢 70 字符，
+        // 故统一走 ViamUtils.operationId（≤64、含摘要保证唯一）。
+        return ViamUtils.operationId(action.name(), requestId, now.toEpochMilli());
     }
 
     /**

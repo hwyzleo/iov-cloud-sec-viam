@@ -87,4 +87,31 @@ public final class ViamUtils {
         }
         return certSn.replace(":", "").toLowerCase(Locale.ROOT);
     }
+
+    /**
+     * 生成操作审计ID（≤64 字符，兼容 {@code tb_viam_certificate_operation.operation_id varchar(64)}）。
+     * <p>
+     * 格式 {@code <scope>:<epochMilli>:<16位摘要>}：
+     * <ul>
+     *   <li>scope 截断至 16 字符（如 COMPENSATE / BFE）；</li>
+     *   <li>摘要取 SHA-256(scope|key|millis) 前 16 位，保证不同 key 不碰撞；</li>
+     *   <li>同一 scope/key/millis 恒定（幂等），不同毫秒不同（可追溯每一次动作）。</li>
+     * </ul>
+     * 严禁直接拼接 requestId + action + 时间戳（会超过 64 列宽）。
+     * </p>
+     *
+     * @param scope      操作类别（如 action 名称）
+     * @param key        业务键（如 requestId / eventId）
+     * @param epochMilli 毫秒时间戳
+     * @return 不超过 64 字符的操作ID
+     */
+    public static String operationId(String scope, String key, long epochMilli) {
+        String safeScope = scope == null || scope.isBlank() ? "OP" : scope.trim();
+        if (safeScope.length() > 16) {
+            safeScope = safeScope.substring(0, 16);
+        }
+        String digest = sha256Hex(safeScope + "|" + (key == null ? "" : key) + "|" + epochMilli)
+                .substring(0, 16);
+        return safeScope + ":" + epochMilli + ":" + digest;
+    }
 }

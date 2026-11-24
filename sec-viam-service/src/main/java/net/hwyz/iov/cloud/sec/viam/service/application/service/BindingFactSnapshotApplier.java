@@ -154,7 +154,8 @@ public class BindingFactSnapshotApplier {
                 + ",superseded=" + outcome.superseded + ",unbound=" + outcome.unbound
                 + ",unchanged=" + outcome.unchanged + ",enrollable=" + enrollable.size();
         SecurityOperationAudit audit = SecurityOperationAudit.builder()
-                .operationId("BFE-" + eventId)
+                .operationId(net.hwyz.iov.cloud.sec.viam.service.common.util.ViamUtils
+                        .operationId("BFE", eventId, System.currentTimeMillis()))
                 .principalId(principal == null ? null : principal.getPrincipalId())
                 .hsmUid(null)
                 .vin(vin)
