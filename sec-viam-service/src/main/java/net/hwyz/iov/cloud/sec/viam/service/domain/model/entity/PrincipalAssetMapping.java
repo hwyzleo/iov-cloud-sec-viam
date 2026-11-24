@@ -71,4 +71,15 @@ public class PrincipalAssetMapping {
     public void unbind() {
         this.state = MappingState.UNBOUND;
     }
+
+    /**
+     * 换件/重绑：旧映射转 SUPERSEDED（保留历史，不删除）。
+     * <p>
+     * SEC-VIAM-DSN-CR-006：同一 VIN 同类别换件时旧映射退出 ACTIVE；
+     * 同一 device_sn 同时最多一条 ACTIVE（由唯一索引 uk_device_sn_active 兜底）。
+     * </p>
+     */
+    public void supersede() {
+        this.state = MappingState.SUPERSEDED;
+    }
 }

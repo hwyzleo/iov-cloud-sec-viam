@@ -19,6 +19,15 @@ public class ViamKafkaTopicProperties {
     @Value("${viam.kafka.topics.vagw-device-online:vagw.device.online}")
     private String vagwDeviceOnline;
 
+    /**
+     * VMD 车辆-零件绑定变更事件 topic（SEC-VIAM-DSN-CR-006 / D-VIAM-028）
+     * <p>
+     * 事件仅作触发信号：VIAM 收到后回查 VMD active 绑定快照收敛，不直接采信事件载荷完成身份登记。
+     * </p>
+     */
+    @Value("${viam.kafka.topics.vmd-part-binding-changed:vmd.vehicle-part-binding.changed}")
+    private String vmdPartBindingChanged;
+
     @Value("${viam.kafka.topics.device-login-succeeded:viam.device.login-succeeded}")
     private String deviceLoginSucceeded;
 
