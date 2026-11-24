@@ -378,7 +378,10 @@ public class CertificateProvisioningAppService {
         }
 
         // CSR 门禁：DER/自签名（702204）、唯一 CN=目标 hsmUid（702205）、不含 VIN（702206）
-        CertificateCsrValidator.validate(cmd.getCsrDerBase64(), principal.getHsmUid(), cmd.getVin());
+        CertificateCsrValidator.ValidatedCsr validatedCsr =
+                CertificateCsrValidator.validate(cmd.getCsrDerBase64(), principal.getHsmUid(), cmd.getVin());
+        // 后续链路统一使用归一化后的标准 Base64（兼容 PEM/Base64URL 输入）
+        String normalizedCsrBase64 = java.util.Base64.getEncoder().encodeToString(validatedCsr.der());
 
         CertificateApplyVo applyCmd = CertificateApplyVo.builder()
                 .requestId(requestId)
@@ -387,7 +390,7 @@ public class CertificateProvisioningAppService {
                 .deviceSn(cmd.getDeviceSn())
                 .ecuUid(principal.getHsmUid())
                 .certificateProfile(certificateProfile)
-                .csrDerBase64(cmd.getCsrDerBase64())
+                .csrDerBase64(normalizedCsrBase64)
                 .sourceSystem("MPT_COMPENSATION")
                 .originalRequestId(cmd.getOriginalRequestId())
                 .compensationReason(cmd.getReason())

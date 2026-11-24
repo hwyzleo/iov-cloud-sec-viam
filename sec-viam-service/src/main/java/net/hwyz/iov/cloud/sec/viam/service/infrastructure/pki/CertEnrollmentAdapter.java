@@ -12,6 +12,7 @@ import net.hwyz.iov.cloud.framework.security.crypto.model.SubjectRef;
 import net.hwyz.iov.cloud.sec.viam.api.constant.ViamErrorCode;
 import net.hwyz.iov.cloud.sec.viam.service.common.exception.ViamServiceException;
 import net.hwyz.iov.cloud.sec.viam.service.common.util.CertificateCompensationPolicy;
+import net.hwyz.iov.cloud.sec.viam.service.common.util.CertificateCsrValidator;
 import net.hwyz.iov.cloud.sec.viam.service.common.util.ViamUtils;
 import net.hwyz.iov.cloud.sec.viam.service.domain.model.entity.CredentialEnrollment;
 import org.bouncycastle.asn1.x500.RDN;
@@ -65,7 +66,8 @@ public class CertEnrollmentAdapter {
      */
     public void apply(CredentialEnrollment enrollment, String csrDerBase64) {
         CertEnrollmentTemplate template = requireTemplate();
-        byte[] csr = Base64.getDecoder().decode(csrDerBase64);
+        // 统一归一化（PEM/Base64URL/带空白均接受）；非法编码归为 702204，不冒泡为系统异常
+        byte[] csr = Base64.getDecoder().decode(CertificateCsrValidator.toStandardBase64(csrDerBase64));
         CertApplyRequest request = new CertApplyRequest(
                 profileOf(enrollment.getCertificateProfile()),
                 csr,

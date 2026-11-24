@@ -176,24 +176,38 @@ public final class CertificateCsrValidator {
     /**
      * Base64（容错空白与 PEM 头尾）→ DER；空值或非法编码均为 702204。
      */
-    static byte[] decode(String csrDerBase64) {
+    /**
+     * CSR 编码归一化（SEC-VIAM-DSN-CR-006 修复）：
+     * 去除空白、兼容 PEM 包裹与 Base64URL 字符集，返回标准 Base64。
+     * <p>
+     * 背景：校验器曾兼容 PEM，而适配器直接严格解码，导致粘贴 PEM 时在 PKI 调用前
+     * 抛 {@code IllegalArgumentException}（500）。本方法作为唯一归一化入口。
+     * </p>
+     *
+     * @param csrDerBase64 原始 CSR（标准 Base64 / Base64URL / PEM 均可）
+     * @return 标准 Base64（无空白、无 PEM 头尾）
+     */
+    public static String toStandardBase64(String csrDerBase64) {
         if (csrDerBase64 == null || csrDerBase64.isBlank()) {
             throw new ViamServiceException(ViamErrorCode.CERTIFICATE_CSR_INVALID, "CSR 不能为空");
         }
-        String normalized = csrDerBase64.replaceAll("\\s", "");
+        String normalized = csrDerBase64.replaceAll("\\s", "")
+                .replace("-----BEGINCERTIFICATEREQUEST-----", "")
+                .replace("-----ENDCERTIFICATEREQUEST-----", "")
+                .replace("-----BEGINNEWCERTIFICATEREQUEST-----", "")
+                .replace("-----ENDNEWCERTIFICATEREQUEST-----", "");
+        // Base64URL → 标准 Base64（仅字符映射，不改变长度语义）
+        normalized = normalized.replace('-', '+').replace('_', '/');
         try {
-            return Base64.getDecoder().decode(normalized);
+            byte[] der = Base64.getDecoder().decode(normalized);
+            return Base64.getEncoder().encodeToString(der);
         } catch (IllegalArgumentException e) {
-            // 兼容直接粘贴 PEM：去掉头尾后重试一次
-            String body = normalized
-                    .replace("-----BEGINCERTIFICATEREQUEST-----", "")
-                    .replace("-----ENDCERTIFICATEREQUEST-----", "");
-            try {
-                return Base64.getDecoder().decode(body);
-            } catch (IllegalArgumentException ignored) {
-                throw new ViamServiceException(ViamErrorCode.CERTIFICATE_CSR_INVALID,
-                        "CSR 不是合法的 Base64/DER 编码");
-            }
+            throw new ViamServiceException(ViamErrorCode.CERTIFICATE_CSR_INVALID,
+                    "CSR 不是合法的 Base64/DER 编码");
         }
+    }
+
+    static byte[] decode(String csrDerBase64) {
+        return Base64.getDecoder().decode(toStandardBase64(csrDerBase64));
     }
 }
