@@ -8,13 +8,10 @@ import net.hwyz.iov.cloud.sec.viam.api.vo.VehicleAccessIdentityResultVo;
 import net.hwyz.iov.cloud.sec.viam.service.application.service.SecurityPrincipalAppService;
 import net.hwyz.iov.cloud.sec.viam.service.domain.model.entity.PrincipalAssetMapping;
 import net.hwyz.iov.cloud.sec.viam.service.domain.model.entity.SecurityPrincipal;
-import net.hwyz.iov.cloud.sec.viam.service.domain.repository.PrincipalAssetMappingRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
 
 /**
  * 车辆接入身份反查控制器（SEC-VIAM-DSN-CR-001 / FR-VIAM-004）
@@ -31,15 +28,13 @@ import java.util.List;
 public class ServiceVehicleAccessIdentityController implements ViamVehicleAccessIdentityService {
 
     private final SecurityPrincipalAppService securityPrincipalAppService;
-    private final PrincipalAssetMappingRepository mappingRepository;
 
     @Override
     @GetMapping("/byVin/{vin}")
     public VehicleAccessIdentityResultVo resolveByVin(@PathVariable("vin") String vin) {
         try {
             SecurityPrincipal principal = securityPrincipalAppService.resolvePrincipalByVin(vin);
-            List<PrincipalAssetMapping> mappings = mappingRepository.listActiveByVin(vin);
-            PrincipalAssetMapping mapping = mappings.isEmpty() ? null : mappings.get(0);
+            PrincipalAssetMapping mapping = securityPrincipalAppService.resolveAccessMappingByVin(vin);
             return VehicleAccessIdentityResultVo.builder()
                     .vin(vin)
                     .status("RESOLVED")

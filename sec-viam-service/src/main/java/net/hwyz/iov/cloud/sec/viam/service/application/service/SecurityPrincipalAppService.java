@@ -137,15 +137,44 @@ public class SecurityPrincipalAppService {
     }
 
     /**
+     * 车辆接入设备类别：车辆接入身份（VAGW/CIAM 解析）以 TBOX 设备主体为准。
+     * <p>
+     * SEC-VIAM-DSN-CR-006：事件驱动登记后同一 VIN 可能同时存在 TBOX 与 IVI 映射，
+     * 不能再以“同 VIN 唯一映射”作为解析前提；否则多设备车辆会被误判为冲突。
+     * </p>
+     */
+    private static final String ACCESS_DEVICE_CATEGORY = "TBOX";
+
+    /**
      * 按 VIN 解析接入身份。
      */
     public SecurityPrincipal resolvePrincipalByVin(String vin) {
+        PrincipalAssetMapping mapping = resolveAccessMappingByVin(vin);
+        return principalRepository.findByPrincipalId(mapping.getPrincipalId())
+                .orElseThrow(() -> new ViamServiceException(ViamErrorCode.PRINCIPAL_NOT_EXIST));
+    }
+
+    /**
+     * 按 VIN 解析“车辆接入”映射（SEC-VIAM-DSN-CR-006 / D-VIAM-037）。
+     * <p>
+     * 优先取 TBOX 类别映射（车辆接入身份）；无 TBOX 时回退到“唯一映射”以兼容历史单设备数据；
+     * 既无 TBOX 又不唯一仍然冲突（fail-closed，不猜、不择一）。
+     * </p>
+     *
+     * @param vin 车架号
+     * @return 车辆接入映射
+     */
+    public PrincipalAssetMapping resolveAccessMappingByVin(String vin) {
         List<PrincipalAssetMapping> mappings = mappingRepository.listActiveByVin(vin);
-        if (mappings.size() != 1) {
+        List<PrincipalAssetMapping> accessMappings = mappings.stream()
+                .filter(mapping -> ACCESS_DEVICE_CATEGORY.equalsIgnoreCase(
+                        mapping.getDeviceCategory() == null ? null : mapping.getDeviceCategory().trim()))
+                .toList();
+        List<PrincipalAssetMapping> candidates = accessMappings.isEmpty() ? mappings : accessMappings;
+        if (candidates.size() != 1) {
             throw new ViamServiceException(ViamErrorCode.PRINCIPAL_ASSET_MAPPING_CONFLICT);
         }
-        return principalRepository.findByPrincipalId(mappings.get(0).getPrincipalId())
-                .orElseThrow(() -> new ViamServiceException(ViamErrorCode.PRINCIPAL_NOT_EXIST));
+        return candidates.get(0);
     }
 
     /**
