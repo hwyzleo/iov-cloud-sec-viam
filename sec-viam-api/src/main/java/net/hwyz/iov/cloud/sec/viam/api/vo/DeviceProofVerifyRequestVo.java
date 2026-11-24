@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
  * <ul>
  *   <li>{@code proofType=MTLS_CERT}：{@code proof} 为本次连接实际叶子证书（Base64 DER，或 PEM 单证书/链，
  *       仅取第一张叶子证书）；设备身份取证书 Subject CN，{@code deviceId} 可选，仅用于一致性交叉校验。</li>
- *   <li>{@code proofType=KEY_SIGNATURE}：{@code proof} 为对 {@code nonce} 原文 UTF-8 字节的签名（Base64）；
+ *   <li>{@code proofType=KEY_SIGNATURE}：{@code proof} 为对 {@code nonce} <b>Base64 解码后原始字节</b>的签名（Base64）；
  *       {@code deviceId} 必填，通常为 deviceSn（证书设备的唯一值 hsmUid 亦可）。</li>
  * </ul>
  *
@@ -41,7 +41,10 @@ public class DeviceProofVerifyRequestVo {
     @Size(max = 24576, message = "设备证明超过长度上限")
     private String proof;
 
-    /** 单次随机串（调用方生成，VIAM 一次性消费；UTF-8，长度 16～128） */
+    /**
+     * 单次随机串的传输编码：调用方生成随机字节后做标准 Base64（车端 SEC/ACC 均为 {@code Base64(32B)}）；
+     * VIAM 一次性消费；长度 16～128。KEY_SIGNATURE 的签名对象为解码后的原始字节，不是本字段文本。
+     */
     @NotBlank(message = "nonce不能为空")
     @Size(min = 16, max = 128, message = "nonce长度非法（16～128）")
     private String nonce;

@@ -29,6 +29,7 @@ import java.security.SecureRandom;
 import java.security.Signature;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -56,7 +57,10 @@ class PkiDeviceProofVerifierTest {
 
     private static final String UID = "HSM-0001";
     private static final String SN = "SN-0001";
-    private static final String NONCE = "nonce-0123456789abcdef";
+    /** 车端约定：nonce = Base64(32B 随机字节)，签名对象为解码后的原始字节。 */
+    private static final byte[] NONCE_BYTES =
+            "nonce-0123456789abcdef0123456789".getBytes(StandardCharsets.UTF_8);
+    private static final String NONCE = Base64.getEncoder().encodeToString(NONCE_BYTES);
     private static final String PKI_REQUEST_ID = "PKI-1";
 
     @Mock
@@ -216,19 +220,46 @@ class PkiDeviceProofVerifierTest {
     }
 
     @Test
-    @DisplayName("TC-VIAM-3-01 KEY_SIGNATURE：公钥验签 nonce 成功 → 返回已登记证据")
+    @DisplayName("TC-VIAM-3-01 KEY_SIGNATURE：签名对象为 nonce 解码后的原始字节 → 通过")
     void validKeySignature() throws Exception {
         when(enrollmentRepository.listByDeviceSn(SN))
                 .thenReturn(List.of(enrollment(serial(), fingerprint(), CredentialEnrollment.CertificateState.ACTIVE)));
         leafMaterial();
         status(CertificateStatus.VALID);
 
-        byte[] signature = sign(NONCE);
+        byte[] signature = sign(NONCE_BYTES);
         DeviceProofEvidence evidence = verifier.verify(DeviceProofType.KEY_SIGNATURE, signature, NONCE, SN,
                 Instant.now());
 
         assertEquals(UID, evidence.hsmUid());
         assertEquals(SN, evidence.deviceSn());
+    }
+
+    @Test
+    @DisplayName("TC-VIAM-3-02 KEY_SIGNATURE：对 nonce Base64 文本签名 → PROOF_INVALID（回归护栏）")
+    void keySignatureOverBase64TextRejected() throws Exception {
+        when(enrollmentRepository.listByDeviceSn(SN))
+                .thenReturn(List.of(enrollment(serial(), fingerprint(), CredentialEnrollment.CertificateState.ACTIVE)));
+        leafMaterial();
+        status(CertificateStatus.VALID);
+
+        byte[] signature = sign(NONCE.getBytes(StandardCharsets.UTF_8));
+
+        assertThrows(DeviceProofInvalidException.class,
+                () -> verifier.verify(DeviceProofType.KEY_SIGNATURE, signature, NONCE, SN, Instant.now()));
+    }
+
+    @Test
+    @DisplayName("TC-VIAM-3-02 KEY_SIGNATURE：nonce 不是合法 Base64 → PROOF_INVALID")
+    void keySignatureNonceNotBase64() throws Exception {
+        when(enrollmentRepository.listByDeviceSn(SN))
+                .thenReturn(List.of(enrollment(serial(), fingerprint(), CredentialEnrollment.CertificateState.ACTIVE)));
+        leafMaterial();
+        status(CertificateStatus.VALID);
+
+        assertThrows(DeviceProofInvalidException.class,
+                () -> verifier.verify(DeviceProofType.KEY_SIGNATURE, sign(NONCE_BYTES), "nonce-0123456789abcdef",
+                        SN, Instant.now()));
     }
 
     @Test
@@ -238,7 +269,7 @@ class PkiDeviceProofVerifierTest {
                 .thenReturn(List.of(enrollment(serial(), fingerprint(), CredentialEnrollment.CertificateState.ACTIVE)));
         leafMaterial();
 
-        byte[] wrongSignature = sign("another-nonce-value");
+        byte[] wrongSignature = sign("another-nonce-value".getBytes(StandardCharsets.UTF_8));
 
         assertThrows(DeviceProofInvalidException.class,
                 () -> verifier.verify(DeviceProofType.KEY_SIGNATURE, wrongSignature, NONCE, SN, Instant.now()));
@@ -297,10 +328,10 @@ class PkiDeviceProofVerifierTest {
                         NONCE, null, Instant.now()));
     }
 
-    private byte[] sign(String message) throws Exception {
+    private byte[] sign(byte[] message) throws Exception {
         Signature signature = Signature.getInstance("SHA256withECDSA");
         signature.initSign(keyPair.getPrivate(), new SecureRandom());
-        signature.update(message.getBytes(StandardCharsets.UTF_8));
+        signature.update(message);
         return signature.sign();
     }
 }

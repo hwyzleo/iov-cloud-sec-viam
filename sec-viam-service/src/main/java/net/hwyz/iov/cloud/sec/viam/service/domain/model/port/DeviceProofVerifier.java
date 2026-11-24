@@ -20,7 +20,7 @@ public interface DeviceProofVerifier {
      *
      * @param proofType  证明类型
      * @param proofBytes 已解码的证明体（MTLS_CERT：证书 DER；KEY_SIGNATURE：签名字节）
-     * @param nonce      nonce 原文（KEY_SIGNATURE 的签名对象为 UTF-8 字节）
+     * @param nonce      nonce 字段（Base64 编码的随机字节；KEY_SIGNATURE 的签名对象为解码后的原始字节）
      * @param deviceId   设备标识线索（可空，仅用于定位已登记证书）
      * @param verifiedAt 校验时刻
      * @return 已登记证据

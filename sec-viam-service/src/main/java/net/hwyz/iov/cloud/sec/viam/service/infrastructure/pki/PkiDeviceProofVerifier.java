@@ -22,6 +22,7 @@ import java.security.Signature;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
+import java.util.Base64;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
@@ -39,7 +40,9 @@ import java.util.Locale;
  * <ul>
  *   <li>MTLS_CERT：解析叶子证书 → 序列号/指纹与登记事实比对 → 链/有效期/吊销（OCSP 优先）→ Subject CN 作为设备身份。</li>
  *   <li>KEY_SIGNATURE：以 deviceId 定位已登记 ACTIVE 证书 → 经 PKI 重取叶子证书 → 用其公钥校验
- *       对 nonce 原文（UTF-8）的签名 → 同一套状态校验。</li>
+ *       对 {@code nonce} <b>Base64 解码后原始字节</b>的签名 → 同一套状态校验。
+ *       nonce 字段是调用方随机字节的传输编码（车端 SEC/ACC 约定 {@code nonce = Base64(32B)}），
+ *       签名对象是解码前的随机字节，不是 Base64 文本（2026-11-25 修复：此前误验 44 字符 Base64 文本）。</li>
  * </ul>
  * 任何无法获得确定 GOOD/REVOKED 的依赖结果一律 fail-closed（依赖不可用），不伪装为吊销、不降级为通过。
  *
@@ -99,7 +102,7 @@ public class PkiDeviceProofVerifier implements DeviceProofVerifier {
     }
 
     /**
-     * KEY_SIGNATURE：deviceId 定位已登记 ACTIVE 证书；签名对象为 nonce 原文 UTF-8 字节。
+     * KEY_SIGNATURE：deviceId 定位已登记 ACTIVE 证书；签名对象为 nonce Base64 解码后的原始字节。
      */
     private DeviceProofEvidence verifyKeySignature(byte[] signatureBytes, String nonce, String deviceId,
                                                    Instant verifiedAt) {
@@ -122,7 +125,7 @@ public class PkiDeviceProofVerifier implements DeviceProofVerifier {
         if (hsmUid == null || !hsmUid.equals(ViamUtils.normalizeUid(enrollment.getHsmUid()))) {
             throw new DeviceProofInvalidException("证书CN与登记hsmUid不一致");
         }
-        requireSignatureValid(leaf.getPublicKey(), nonce, signatureBytes);
+        requireSignatureValid(leaf.getPublicKey(), decodeNonce(nonce), signatureBytes);
         CertificateVerificationAdapter.CertificateVerificationResult result =
                 verifyStatus(leafDer, certSn, fingerprint, verifiedAt);
         Instant notAfter = leaf.getNotAfter() == null ? result.notAfter() : leaf.getNotAfter().toInstant();
@@ -244,7 +247,25 @@ public class PkiDeviceProofVerifier implements DeviceProofVerifier {
         }
     }
 
-    private static void requireSignatureValid(PublicKey publicKey, String nonce, byte[] signatureBytes) {
+    /**
+     * nonce 传输编码解码：nonce 字段是随机字节的标准 Base64（车端 SEC/ACC 均按 {@code Base64(32B)} 发送），
+     * 签名对象为解码后的原始字节。非法 Base64 归 PROOF_INVALID（证明无法成立），不伪装为通过。
+     */
+    private static byte[] decodeNonce(String nonce) {
+        try {
+            byte[] nonceBytes = Base64.getDecoder().decode(nonce.trim());
+            if (nonceBytes.length == 0) {
+                throw new DeviceProofInvalidException("nonce解码后为空");
+            }
+            return nonceBytes;
+        } catch (DeviceProofInvalidException e) {
+            throw e;
+        } catch (IllegalArgumentException e) {
+            throw new DeviceProofInvalidException("nonce不是合法Base64编码");
+        }
+    }
+
+    private static void requireSignatureValid(PublicKey publicKey, byte[] nonceBytes, byte[] signatureBytes) {
         if (publicKey == null) {
             throw new DeviceProofInvalidException("已登记证书缺少公钥");
         }
@@ -252,7 +273,7 @@ public class PkiDeviceProofVerifier implements DeviceProofVerifier {
         try {
             Signature signature = Signature.getInstance(algorithm);
             signature.initVerify(publicKey);
-            signature.update(nonce.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            signature.update(nonceBytes);
             if (!signature.verify(signatureBytes)) {
                 throw new DeviceProofInvalidException("nonce签名校验失败");
             }
