@@ -2,7 +2,9 @@ package net.hwyz.iov.cloud.sec.viam.service.infrastructure.pki;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.hwyz.iov.cloud.framework.security.crypto.client.PkiClient;
+import net.hwyz.iov.cloud.framework.security.crypto.exception.CertificateMaterialUnavailableException;
+import net.hwyz.iov.cloud.framework.security.crypto.exception.CertificateNotReadyException;
+import net.hwyz.iov.cloud.framework.security.crypto.model.IssuedCertificate;
 import net.hwyz.iov.cloud.sec.viam.api.vo.enums.CertificateStatus;
 import net.hwyz.iov.cloud.sec.viam.api.vo.enums.DeviceProofType;
 import net.hwyz.iov.cloud.sec.viam.service.common.exception.DeviceProofDependencyException;
@@ -12,7 +14,6 @@ import net.hwyz.iov.cloud.sec.viam.service.domain.model.entity.CredentialEnrollm
 import net.hwyz.iov.cloud.sec.viam.service.domain.model.port.DeviceProofEvidence;
 import net.hwyz.iov.cloud.sec.viam.service.domain.model.port.DeviceProofVerifier;
 import net.hwyz.iov.cloud.sec.viam.service.domain.repository.CredentialEnrollmentRepository;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayInputStream;
@@ -28,8 +29,12 @@ import java.util.Locale;
 /**
  * 设备证明校验适配器（SEC-VIAM-DSN-CR-003 / FR-VIAM-3-3 / D-VIAM-3-02）
  * <p>
- * 复用既有 framework-security PKI 能力（{@link PkiClient} 证书状态 + VIAM 证书登记事实），
+ * 复用既有 framework-security PKI 能力（证书状态 + 证书注册门面 + VIAM 证书登记事实），
  * 不新建第二套 PKI 客户端、不做任何写操作。
+ * <p>
+ * 已登记证书材料一律经 {@link CertEnrollmentAdapter#getCertificate(String)} 按 PKI 申请编号取用：
+ * 当前部署为 step-ca，其不提供「按序列号回查已签发证书」的 CA 路由
+ * （FW-SEC-DSN-CR-008 §5.3），故禁止再用 {@code PkiClient#queryCertificate(serial)}。
  * </p>
  * <ul>
  *   <li>MTLS_CERT：解析叶子证书 → 序列号/指纹与登记事实比对 → 链/有效期/吊销（OCSP 优先）→ Subject CN 作为设备身份。</li>
@@ -52,7 +57,7 @@ public class PkiDeviceProofVerifier implements DeviceProofVerifier {
 
     private final CredentialEnrollmentRepository enrollmentRepository;
     private final CertificateVerificationAdapter certificateVerificationAdapter;
-    private final ObjectProvider<PkiClient> pkiClientProvider;
+    private final CertEnrollmentAdapter certEnrollmentAdapter;
 
     @Override
     public DeviceProofEvidence verify(DeviceProofType proofType, byte[] proofBytes, String nonce, String deviceId,
@@ -158,24 +163,43 @@ public class PkiDeviceProofVerifier implements DeviceProofVerifier {
     }
 
     /**
-     * 经 PKI 按证书序列号重取叶子证书（不落库、不缓存）。
+     * 经 PKI 申请编号重取已登记叶子证书（不落库、不缓存）。
+     * <p>
+     * step-ca 不提供按序列号回查能力，故只能按 {@code pkiRequestId} 走证书注册门面；
+     * framework 判定「材料不可用/未就绪」归 {@code PROOF_INVALID}；
+     * 存储、网络等真正的依赖故障归 {@code DEPENDENCY_UNAVAILABLE}，不把两者混为一谈。
+     * </p>
      */
     private byte[] loadRegisteredLeaf(CredentialEnrollment enrollment) {
-        PkiClient pkiClient = pkiClientProvider.getIfAvailable();
-        if (pkiClient == null) {
-            throw new DeviceProofDependencyException("framework PkiClient未装配");
+        String pkiRequestId = enrollment.getPkiRequestId();
+        if (pkiRequestId == null || pkiRequestId.isBlank()) {
+            throw new DeviceProofInvalidException("证书登记缺少PKI申请编号，无法取回证书材料");
         }
+        IssuedCertificate issued;
         try {
-            PkiClient.CertificateResponse response = pkiClient.queryCertificate(enrollment.getCertSn());
-            if (response == null || response.leafCertificate() == null || response.leafCertificate().length == 0) {
-                throw new DeviceProofDependencyException("PKI未返回已登记证书材料，无法校验证明");
-            }
-            return response.leafCertificate();
-        } catch (DeviceProofDependencyException e) {
-            throw e;
+            issued = certEnrollmentAdapter.getCertificate(pkiRequestId);
+        } catch (CertificateMaterialUnavailableException | CertificateNotReadyException e) {
+            throw new DeviceProofInvalidException("已登记证书材料不可再获取: " + brief(e), e);
         } catch (RuntimeException e) {
-            throw new DeviceProofDependencyException("PKI证书查询失败: " + e.getClass().getSimpleName(), e);
+            throw new DeviceProofDependencyException("PKI证书材料获取失败: " + brief(e), e);
         }
+        if (issued == null || issued.leafCertificate() == null || issued.leafCertificate().length == 0) {
+            throw new DeviceProofInvalidException("已登记证书材料不可再获取（PKI无材料）");
+        }
+        return issued.leafCertificate();
+    }
+
+    /**
+     * 异常摘要：单行、截断，便于日志定位且不放大异常正文。
+     */
+    private static String brief(Throwable e) {
+        String message = e.getMessage();
+        if (message == null || message.isBlank()) {
+            return e.getClass().getSimpleName();
+        }
+        String singleLine = message.replaceAll("\\s+", " ").trim();
+        String summary = singleLine.length() > 120 ? singleLine.substring(0, 120) + "..." : singleLine;
+        return e.getClass().getSimpleName() + ": " + summary;
     }
 
     /**

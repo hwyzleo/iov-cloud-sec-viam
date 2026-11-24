@@ -28,6 +28,7 @@ import net.hwyz.iov.cloud.sec.viam.service.domain.repository.DeviceOnboardingRep
 import net.hwyz.iov.cloud.sec.viam.service.domain.repository.PrincipalAssetMappingRepository;
 import net.hwyz.iov.cloud.sec.viam.service.domain.repository.SecurityOperationAuditRepository;
 import net.hwyz.iov.cloud.sec.viam.service.domain.repository.SecurityPrincipalRepository;
+import net.hwyz.iov.cloud.sec.viam.service.infrastructure.pki.CertEnrollmentAdapter;
 import net.hwyz.iov.cloud.sec.viam.service.infrastructure.pki.CertificateVerificationAdapter;
 import net.hwyz.iov.cloud.sec.viam.service.infrastructure.pki.PkiDeviceProofVerifier;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -102,7 +103,7 @@ class DeviceProofEndToEndPathTest {
     @Mock
     private CertificateVerificationAdapter certificateVerificationAdapter;
     @Mock
-    private ObjectProvider<net.hwyz.iov.cloud.framework.security.crypto.client.PkiClient> pkiClientProvider;
+    private CertEnrollmentAdapter certEnrollmentAdapter;
     @Mock
     private StringRedisTemplate stringRedisTemplate;
     @Mock
@@ -130,7 +131,7 @@ class DeviceProofEndToEndPathTest {
         DeviceProofMetrics metrics = new DeviceProofMetrics(registryProvider);
 
         PkiDeviceProofVerifier verifier =
-                new PkiDeviceProofVerifier(enrollmentRepository, certificateVerificationAdapter, pkiClientProvider);
+                new PkiDeviceProofVerifier(enrollmentRepository, certificateVerificationAdapter, certEnrollmentAdapter);
         DeviceProofVerifyAppService appService = new DeviceProofVerifyAppService(verifier, principalRepository,
                 mappingRepository, onboardingRepository, nonceStore, rateLimiter, auditRecorder, metrics, properties);
         controller = new ServiceDeviceProofController(appService);

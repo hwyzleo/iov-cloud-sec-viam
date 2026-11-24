@@ -1,6 +1,7 @@
 package net.hwyz.iov.cloud.sec.viam.service.infrastructure.pki;
 
-import net.hwyz.iov.cloud.framework.security.crypto.client.PkiClient;
+import net.hwyz.iov.cloud.framework.security.crypto.exception.CertificateMaterialUnavailableException;
+import net.hwyz.iov.cloud.framework.security.crypto.model.IssuedCertificate;
 import net.hwyz.iov.cloud.sec.viam.api.vo.enums.CertificateStatus;
 import net.hwyz.iov.cloud.sec.viam.api.vo.enums.DeviceProofType;
 import net.hwyz.iov.cloud.sec.viam.service.common.exception.DeviceProofDependencyException;
@@ -19,7 +20,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.beans.factory.ObjectProvider;
 
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -40,7 +40,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
@@ -58,13 +57,14 @@ class PkiDeviceProofVerifierTest {
     private static final String UID = "HSM-0001";
     private static final String SN = "SN-0001";
     private static final String NONCE = "nonce-0123456789abcdef";
+    private static final String PKI_REQUEST_ID = "PKI-1";
 
     @Mock
     private CredentialEnrollmentRepository enrollmentRepository;
     @Mock
     private CertificateVerificationAdapter certificateVerificationAdapter;
     @Mock
-    private ObjectProvider<PkiClient> pkiClientProvider;
+    private CertEnrollmentAdapter certEnrollmentAdapter;
 
     private PkiDeviceProofVerifier verifier;
 
@@ -74,7 +74,7 @@ class PkiDeviceProofVerifierTest {
 
     @BeforeEach
     void setUp() throws Exception {
-        verifier = new PkiDeviceProofVerifier(enrollmentRepository, certificateVerificationAdapter, pkiClientProvider);
+        verifier = new PkiDeviceProofVerifier(enrollmentRepository, certificateVerificationAdapter, certEnrollmentAdapter);
         KeyPairGenerator generator = KeyPairGenerator.getInstance("EC");
         generator.initialize(256);
         keyPair = generator.generateKeyPair();
@@ -97,6 +97,7 @@ class PkiDeviceProofVerifierTest {
                                             CredentialEnrollment.CertificateState state) {
         return CredentialEnrollment.builder()
                 .requestId("REQ-1")
+                .pkiRequestId(PKI_REQUEST_ID)
                 .deviceSn(SN)
                 .hsmUid(UID)
                 .certSn(certSn)
@@ -116,6 +117,15 @@ class PkiDeviceProofVerifierTest {
     private void registered() throws Exception {
         when(enrollmentRepository.findByCertSn(serial()))
                 .thenReturn(Optional.of(enrollment(serial(), fingerprint(), CredentialEnrollment.CertificateState.ACTIVE)));
+    }
+
+    /**
+     * 已登记证书材料按 PKI 申请编号可用（step-ca 无序列号回查能力，只允许 requestId 路径）。
+     */
+    private void leafMaterial() throws Exception {
+        when(certEnrollmentAdapter.getCertificate(PKI_REQUEST_ID))
+                .thenReturn(new IssuedCertificate(leafDer, List.of(leafDer), serial(),
+                        Instant.now().minusSeconds(60), Instant.now().plusSeconds(3600), fingerprint()));
     }
 
     private void status(CertificateStatus status) throws Exception {
@@ -210,10 +220,7 @@ class PkiDeviceProofVerifierTest {
     void validKeySignature() throws Exception {
         when(enrollmentRepository.listByDeviceSn(SN))
                 .thenReturn(List.of(enrollment(serial(), fingerprint(), CredentialEnrollment.CertificateState.ACTIVE)));
-        PkiClient pkiClient = mock(PkiClient.class);
-        when(pkiClientProvider.getIfAvailable()).thenReturn(pkiClient);
-        when(pkiClient.queryCertificate(serial()))
-                .thenReturn(new PkiClient.CertificateResponse("PKI-1", leafDer, leafDer, serial(), null, null));
+        leafMaterial();
         status(CertificateStatus.VALID);
 
         byte[] signature = sign(NONCE);
@@ -229,10 +236,7 @@ class PkiDeviceProofVerifierTest {
     void keySignatureMismatch() throws Exception {
         when(enrollmentRepository.listByDeviceSn(SN))
                 .thenReturn(List.of(enrollment(serial(), fingerprint(), CredentialEnrollment.CertificateState.ACTIVE)));
-        PkiClient pkiClient = mock(PkiClient.class);
-        when(pkiClientProvider.getIfAvailable()).thenReturn(pkiClient);
-        when(pkiClient.queryCertificate(serial()))
-                .thenReturn(new PkiClient.CertificateResponse("PKI-1", leafDer, leafDer, serial(), null, null));
+        leafMaterial();
 
         byte[] wrongSignature = sign("another-nonce-value");
 
@@ -251,15 +255,37 @@ class PkiDeviceProofVerifierTest {
     }
 
     @Test
-    @DisplayName("TC-VIAM-3-04 KEY_SIGNATURE：PKI 无法重取证书 → DEPENDENCY_UNAVAILABLE")
+    @DisplayName("TC-VIAM-3-04 KEY_SIGNATURE：PKI 依赖故障 → DEPENDENCY_UNAVAILABLE")
     void keySignaturePkiUnavailable() throws Exception {
         when(enrollmentRepository.listByDeviceSn(SN))
                 .thenReturn(List.of(enrollment(serial(), fingerprint(), CredentialEnrollment.CertificateState.ACTIVE)));
-        PkiClient pkiClient = mock(PkiClient.class);
-        when(pkiClientProvider.getIfAvailable()).thenReturn(pkiClient);
-        when(pkiClient.queryCertificate(serial())).thenThrow(new IllegalStateException("pki down"));
+        when(certEnrollmentAdapter.getCertificate(PKI_REQUEST_ID))
+                .thenThrow(new IllegalStateException("pki down"));
 
         assertThrows(DeviceProofDependencyException.class,
+                () -> verifier.verify(DeviceProofType.KEY_SIGNATURE, new byte[]{1, 2, 3}, NONCE, SN, Instant.now()));
+    }
+
+    @Test
+    @DisplayName("TC-VIAM-3-04 KEY_SIGNATURE：证书材料不可再获取 → PROOF_INVALID（非依赖故障）")
+    void keySignatureMaterialUnavailable() throws Exception {
+        when(enrollmentRepository.listByDeviceSn(SN))
+                .thenReturn(List.of(enrollment(serial(), fingerprint(), CredentialEnrollment.CertificateState.ACTIVE)));
+        when(certEnrollmentAdapter.getCertificate(PKI_REQUEST_ID))
+                .thenThrow(new CertificateMaterialUnavailableException("材料已清理"));
+
+        assertThrows(DeviceProofInvalidException.class,
+                () -> verifier.verify(DeviceProofType.KEY_SIGNATURE, new byte[]{1, 2, 3}, NONCE, SN, Instant.now()));
+    }
+
+    @Test
+    @DisplayName("TC-VIAM-3-04 KEY_SIGNATURE：登记缺少 PKI 申请编号 → PROOF_INVALID（step-ca 无序列号回查）")
+    void keySignatureWithoutPkiRequestId() {
+        CredentialEnrollment legacy = enrollment(serial(), null, CredentialEnrollment.CertificateState.ACTIVE);
+        legacy.setPkiRequestId(null);
+        when(enrollmentRepository.listByDeviceSn(SN)).thenReturn(List.of(legacy));
+
+        assertThrows(DeviceProofInvalidException.class,
                 () -> verifier.verify(DeviceProofType.KEY_SIGNATURE, new byte[]{1, 2, 3}, NONCE, SN, Instant.now()));
     }
 
