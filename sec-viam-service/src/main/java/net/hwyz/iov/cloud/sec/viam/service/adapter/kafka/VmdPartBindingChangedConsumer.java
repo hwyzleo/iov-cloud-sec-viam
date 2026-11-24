@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.hwyz.iov.cloud.sec.viam.service.adapter.kafka.dto.VmdPartBindingChangedPayload;
 import net.hwyz.iov.cloud.sec.viam.service.application.service.BindingFactEnrollmentAppService;
 import net.hwyz.iov.cloud.sec.viam.service.common.exception.ViamServiceException;
+import net.hwyz.iov.cloud.sec.viam.service.common.util.ViamUtils;
 import net.hwyz.iov.cloud.sec.viam.service.infrastructure.inbox.ViamInboxWriter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -51,12 +52,18 @@ public class VmdPartBindingChangedConsumer {
             log.error("BINDING-CHANGED | 载荷解析失败: err={}", e.getMessage());
             return;
         }
-        if (event == null || event.getEventId() == null) {
-            log.warn("BINDING-CHANGED | 事件ID缺失，丢弃");
+        if (event == null) {
+            log.warn("BINDING-CHANGED | 载荷为空，丢弃");
+            return;
+        }
+        // VMD 直发事件不带 eventId（仅 Outbox 重放路径带）；缺省时按业务键派生稳定幂等键
+        String eventId = resolveEventId(event);
+        if (eventId == null) {
+            log.warn("BINDING-CHANGED | 无法定位事件（vin/bindingId/seq 全空），丢弃");
             return;
         }
         String aggregateId = event.getBindingId() == null ? event.getVin() : String.valueOf(event.getBindingId());
-        boolean firstSeen = inboxWriter.tryRegister(event.getEventId(), EVENT_TYPE, sourceTopic, aggregateId, payload);
+        boolean firstSeen = inboxWriter.tryRegister(eventId, EVENT_TYPE, sourceTopic, aggregateId, payload);
         if (!firstSeen) {
             return;
         }
@@ -65,19 +72,49 @@ public class VmdPartBindingChangedConsumer {
             if (result.hasSkipped()) {
                 // 芯片 UID 缺失/非法：单条已跳过，事件隔离以便补齐后重放
                 log.warn("BINDING-CHANGED | 芯片UID缺失，事件隔离待重放: eventId={}, skipped={}",
-                        event.getEventId(), result.getSkippedDeviceSns());
-                inboxWriter.markQuarantined(event.getEventId(),
+                        eventId, result.getSkippedDeviceSns());
+                inboxWriter.markQuarantined(eventId,
                         "uid unavailable: " + result.getSkippedDeviceSns());
                 return;
             }
-            inboxWriter.markProcessed(event.getEventId());
+            inboxWriter.markProcessed(eventId);
         } catch (ViamServiceException e) {
             log.warn("BINDING-CHANGED | 事实门禁未通过，隔离: eventId={}, code={}, reason={}",
-                    event.getEventId(), e.getCode(), e.getMessage());
-            inboxWriter.markQuarantined(event.getEventId(), e.getMessage());
+                    eventId, e.getCode(), e.getMessage());
+            inboxWriter.markQuarantined(eventId, e.getMessage());
         } catch (Exception e) {
-            log.error("BINDING-CHANGED | 处理失败，隔离重试: eventId={}, err={}", event.getEventId(), e.getMessage());
-            inboxWriter.markQuarantined(event.getEventId(), e.getMessage());
+            log.error("BINDING-CHANGED | 处理失败，隔离重试: eventId={}, err={}", eventId, e.getMessage());
+            inboxWriter.markQuarantined(eventId, e.getMessage());
         }
+    }
+
+    /**
+     * 解析幂等事件键：优先使用事件自带 eventId；否则按业务键派生稳定 SHA-256
+     * <p>
+     * VMD 的 `VehiclePartBindingKafkaProducer` 直发事件不含 eventId（仅 Outbox 重放路径带），
+     * 因此以 `vin|bindingId|changeType|seq|occurredAt` 派生 64 位十六进制键：
+     * 同一事件重投得到相同键（Inbox 去重），不同事件键不同。
+     * </p>
+     *
+     * @param event 事件载荷
+     * @return 幂等键；无法定位事件时返回 null
+     */
+    private static String resolveEventId(VmdPartBindingChangedPayload event) {
+        if (event.getEventId() != null && !event.getEventId().isBlank()) {
+            return event.getEventId().trim();
+        }
+        String raw = nullToEmpty(event.getVin()) + '|'
+                + (event.getBindingId() == null ? "" : event.getBindingId()) + '|'
+                + nullToEmpty(event.getChangeType()) + '|'
+                + (event.getSeq() == null ? "" : event.getSeq()) + '|'
+                + (event.getOccurredAt() == null ? "" : event.getOccurredAt().toString());
+        if (raw.replace("|", "").isEmpty()) {
+            return null;
+        }
+        return ViamUtils.sha256Hex(raw);
+    }
+
+    private static String nullToEmpty(String value) {
+        return value == null ? "" : value;
     }
 }

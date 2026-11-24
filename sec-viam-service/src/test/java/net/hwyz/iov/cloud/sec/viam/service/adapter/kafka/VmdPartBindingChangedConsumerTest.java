@@ -18,6 +18,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
@@ -71,10 +72,53 @@ class VmdPartBindingChangedConsumerTest {
     }
 
     @Test
-    @DisplayName("事件ID缺失：丢弃且不落 Inbox")
-    void onBindingChanged_shouldDropMissingEventId() throws Exception {
+    @DisplayName("事件ID缺失（VMD直发事件）：按业务键派生稳定幂等键并继续处理")
+    void onBindingChanged_shouldDeriveEventIdWhenMissing() throws Exception {
+        VmdPartBindingChangedPayload p = payload(null);
+        p.setSeq(44000L);
+        p.setOccurredAt(java.time.Instant.parse("2026-11-16T13:38:55Z"));
+        when(objectMapper.readValue(anyString(), eq(VmdPartBindingChangedPayload.class))).thenReturn(p);
+        when(inboxWriter.tryRegister(anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true);
+        when(appService.handle(any(), eq(TOPIC)))
+                .thenReturn(new BindingFactEnrollmentAppService.Result(1, List.of(), 1, 0, 0, 0, 0));
+
+        consumer.onBindingChanged("{}");
+
+        org.mockito.ArgumentCaptor<String> eventId = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(inboxWriter).tryRegister(eventId.capture(), eq("VEHICLE_PART_BINDING_CHANGED"), eq(TOPIC),
+                anyString(), anyString());
+        assertEquals(64, eventId.getValue().length());
+        assertTrue(eventId.getValue().matches("[0-9a-f]{64}"));
+        verify(inboxWriter).markProcessed(eventId.getValue());
+    }
+
+    @Test
+    @DisplayName("同一无 eventId 事件重复投递：派生键稳定，Inbox 去重")
+    void onBindingChanged_shouldDeriveStableKeyForRedelivery() throws Exception {
+        VmdPartBindingChangedPayload p = payload(null);
+        p.setSeq(44000L);
+        p.setOccurredAt(java.time.Instant.parse("2026-11-16T13:38:55Z"));
+        when(objectMapper.readValue(anyString(), eq(VmdPartBindingChangedPayload.class))).thenReturn(p);
+        when(inboxWriter.tryRegister(anyString(), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(true, false);
+        when(appService.handle(any(), eq(TOPIC)))
+                .thenReturn(new BindingFactEnrollmentAppService.Result(1, List.of(), 1, 0, 0, 0, 0));
+
+        consumer.onBindingChanged("{}");
+        consumer.onBindingChanged("{}");
+
+        org.mockito.ArgumentCaptor<String> eventId = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(inboxWriter, times(2)).tryRegister(eventId.capture(), anyString(), anyString(), anyString(), anyString());
+        assertEquals(eventId.getAllValues().get(0), eventId.getAllValues().get(1));
+        verify(appService, times(1)).handle(any(), anyString());
+    }
+
+    @Test
+    @DisplayName("无法定位事件（vin/bindingId/seq 全空）：丢弃")
+    void onBindingChanged_shouldDropUnidentifiableEvent() throws Exception {
         when(objectMapper.readValue(anyString(), eq(VmdPartBindingChangedPayload.class)))
-                .thenReturn(payload(null));
+                .thenReturn(new VmdPartBindingChangedPayload());
 
         consumer.onBindingChanged("{}");
 
