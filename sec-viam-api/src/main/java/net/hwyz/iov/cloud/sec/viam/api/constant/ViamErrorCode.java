@@ -3,6 +3,7 @@ package net.hwyz.iov.cloud.sec.viam.api.constant;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import net.hwyz.iov.cloud.framework.common.exception.ErrorCode;
+import net.hwyz.iov.cloud.framework.common.exception.HttpStatusAware;
 
 /**
  * VIAM 服务错误码注册表（SEC-VIAM-DSN-CR-001 §3）
@@ -28,7 +29,7 @@ import net.hwyz.iov.cloud.framework.common.exception.ErrorCode;
  */
 @Getter
 @AllArgsConstructor
-public enum ViamErrorCode implements ErrorCode {
+public enum ViamErrorCode implements ErrorCode, HttpStatusAware {
 
     // ================= 安全主体 / 身份关联（702001～702099） =================
     PRINCIPAL_NOT_EXIST("702001", "安全主体不存在"),
@@ -146,7 +147,15 @@ public enum ViamErrorCode implements ErrorCode {
     ACCESS_INVALIDATION_STALE_VERSION("702716", "访问失效事件版本落后于当前安全状态（乱序旧事件，忽略不执行）"),
 
     // ================= 设备证明校验（702720～702729，SEC-VIAM-DSN-CR-003） =================
-    PROOF_VERIFY_PARAM_INVALID("702720", "设备证明参数非法（proofType/proof/nonce/deviceId 缺失或格式非法）"),
+    PROOF_VERIFY_PARAM_INVALID("702720", "设备证明参数非法（proofType/proof/nonce/deviceId 缺失或格式非法）") {
+        /**
+         * 机器面参数/格式错误按 400 返回：调用方（CIAM）据此区分“请求不合法”与“依赖故障”。
+         */
+        @Override
+        public int getHttpStatus() {
+            return 400;
+        }
+    },
     PROOF_INVALID("702721", "设备证明无效（证书链/有效期/吊销/指纹/签名校验失败）"),
     PROOF_NONCE_REPLAYED("702722", "设备证明 nonce 重复（重放），已一次性消费"),
     PROOF_SUBJECT_UNAVAILABLE("702723", "设备未登记、已安全封禁或已退役，证明主体不可用"),

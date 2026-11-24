@@ -1,5 +1,6 @@
 package net.hwyz.iov.cloud.sec.viam.api.constant;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -81,6 +82,15 @@ public final class ViamLegacyCodeMapping {
             return Optional.empty();
         }
         return Optional.ofNullable(LEGACY_TO_NEW.get(legacyCode));
+    }
+
+    /**
+     * 已登记的旧码 → 新码映射（只读快照，供错误码治理校验使用）。
+     *
+     * @return 旧码到新码的只读映射
+     */
+    public static Map<String, String> entries() {
+        return Collections.unmodifiableMap(LEGACY_TO_NEW);
     }
 
     /**

@@ -1,40 +1,38 @@
 package net.hwyz.iov.cloud.sec.viam.service.common.exception;
 
-import lombok.Getter;
-import net.hwyz.iov.cloud.sec.viam.api.constant.ViamErrorCode;
+import net.hwyz.iov.cloud.framework.common.exception.BusinessException;
+import net.hwyz.iov.cloud.framework.common.exception.ErrorCode;
 
 /**
- * VIAM 业务异常（SEC-VIAM-DSN-CR-001 §3）
+ * VIAM 业务异常（SEC-VIAM-DSN-CR-001 §3；统一异常契约见 SEC-VIAM-DSN-CR-005）。
  * <p>
- * 统一携带 702xxx 稳定错误码；对外映射在分类层维护（ViamLegacyCodeMapping）。
+ * 继承框架 {@link BusinessException}，由框架 {@code GlobalExceptionHandler} 单一出口转换：
+ * 管理面端点（声明返回 {@code ApiResponse}）返回 HTTP 200 + 702xxx；机器面端点
+ * （声明返回裸 DTO/{@code void}，供 Feign 调用）返回错误码声明的非 2xx + 同一错误体。
+ * 服务内不得再以 {@code @RestControllerAdvice} 重复映射 702xxx。
  * </p>
  *
  * @author hwyz_leo
  */
-@Getter
-public class ViamServiceException extends RuntimeException {
+public class ViamServiceException extends BusinessException {
 
     private static final long serialVersionUID = 1L;
 
-    private final String code;
-    private final String message;
-
-    public ViamServiceException(ViamErrorCode errorCode) {
-        this(errorCode, errorCode.getMessage());
+    public ViamServiceException(ErrorCode errorCode) {
+        super(errorCode);
     }
 
-    public ViamServiceException(ViamErrorCode errorCode, String detailMessage) {
-        super(detailMessage == null ? errorCode.getMessage() : detailMessage);
-        this.code = errorCode.getCode();
-        this.message = errorCode.getMessage();
+    public ViamServiceException(ErrorCode errorCode, String detailMessage) {
+        super(errorCode, detailMessage == null || detailMessage.isBlank()
+                ? errorCode.getMessage() : detailMessage);
     }
 
     /**
-     * 以显式 702xxx 码构造（供协议/错误分类映射使用）。
+     * 业务错误码（702xxx）；等价于 {@code getErrorCode().getCode()}。
+     *
+     * @return 错误码
      */
-    public ViamServiceException(String code, String message) {
-        super(message);
-        this.code = code;
-        this.message = message;
+    public String getCode() {
+        return getErrorCode().getCode();
     }
 }

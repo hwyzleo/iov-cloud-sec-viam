@@ -345,7 +345,7 @@ public class BusinessKeyProvisioningAppService {
             } catch (Exception e) {
                 log.warn("keyprov 派生/封装失败（结果未知或依赖不可用）: requestId={}, purpose={}, err={}",
                         request.getRequestId(), purpose, e.getMessage());
-                throw new ViamServiceException(ViamErrorCode.KEYPROV_PROVIDER_CALL_UNKNOWN.getCode(),
+                throw new ViamServiceException(ViamErrorCode.KEYPROV_PROVIDER_CALL_UNKNOWN,
                         "Provider 派生/封装失败: " + e.getClass().getSimpleName() + ": " + e.getMessage());
             }
             DeviceBusinessKey canonical = derivedMaterialService.persistOrClaimDerivedMaterial(
