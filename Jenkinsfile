@@ -354,16 +354,21 @@ pipeline {
                         fi
 
                         # 挂载断言：AppRole 凭据必须来自只读 Secret，缺失/可写一律视为部署失败
+                        # 用 println 输出「目标 rw」两列，避免在 --format 模板里内嵌引号（Groovy/sh 多层转义易失真）
+                        MOUNT_LIST="$(docker inspect \
+                            -f '{{range .Mounts}}{{println .Destination .RW}}{{end}}' \
+                            "${PROJECT_NAME}" 2>/dev/null || true)"
+
                         for secret_target in \
                             /run/secrets/openbao-role-id \
                             /run/secrets/openbao-secret-id; do
 
-                            mount_rw="$(docker inspect \
-                                --format "{{range .Mounts}}{{if eq .Destination \"${secret_target}\"}}{{.RW}}{{end}}{{end}}" \
-                                "${PROJECT_NAME}")"
+                            if ! printf '%s\n' "${MOUNT_LIST}" |
+                                grep -qx "${secret_target} false"; then
 
-                            if [ "${mount_rw}" != 'false' ]; then
-                                echo "AppRole Secret 挂载异常：${secret_target} 只读标志=${mount_rw:-缺失}（期望 false）"
+                                echo "AppRole Secret 挂载异常：${secret_target}（期望存在且只读）"
+                                echo '当前挂载：'
+                                printf '%s\n' "${MOUNT_LIST}"
                                 deployment_failed
                             fi
                         done
