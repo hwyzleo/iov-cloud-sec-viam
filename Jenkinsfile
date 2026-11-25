@@ -193,18 +193,6 @@ pipeline {
                         ROLLBACK_AVAILABLE=0
                         ROLLBACK_IMAGE=''
 
-                        # AppRole Secret 前置校验（FW-SEC-DSN-CR-019 / OpenBao AppRole）
-                        # 必须在停止旧容器之前失败：源路径缺失时 --mount 会报错、-v 会静默建目录
-                        for secret_file in \
-                            "${KMS_APPROLE_DIR}/role-id" \
-                            "${KMS_APPROLE_DIR}/secret-id"; do
-
-                            if [ ! -f "${secret_file}" ] || [ ! -r "${secret_file}" ]; then
-                                echo "缺少可读的 AppRole Secret 文件：${secret_file}（拒绝部署）"
-                                exit 1
-                            fi
-                        done
-
                         logout_tcr() {
                             docker logout "${TCR_REGISTRY}" >/dev/null 2>&1 || true
                         }
@@ -260,6 +248,28 @@ pipeline {
                         # 先拉取成功，再停止旧容器
                         echo "拉取镜像：${IMAGE_NAME}"
                         docker pull "${IMAGE_NAME}"
+
+                        # AppRole Secret 前置校验（FW-SEC-DSN-CR-019 / OpenBao AppRole）
+                        # Jenkins 运行在容器内，宿主 Secret 目录对它不可见，故用一次性探针容器以
+                        # 完全相同的挂载方式校验。源路径缺失时 --mount 由 dockerd 直接报错，
+                        # 不会像 -v 那样在宿主机静默创建 root 目录（会堵死后续恢复）。
+                        # 校验必须在停止旧容器之前完成。
+                        if ! docker run \
+                            --rm \
+                            --entrypoint sh \
+                            --mount "type=bind,source=${KMS_APPROLE_DIR},target=/chk,readonly" \
+                            "${IMAGE_NAME}" -c '
+                                for f in /chk/role-id /chk/secret-id; do
+                                    if [ ! -f "$f" ] || [ ! -r "$f" ] || [ ! -s "$f" ]; then
+                                        echo "缺少可读的 AppRole Secret：$f" >&2
+                                        exit 1
+                                    fi
+                                done
+                            '; then
+
+                            echo "AppRole Secret 前置校验失败（${KMS_APPROLE_DIR}），拒绝部署"
+                            exit 1
+                        fi
 
                         # 清理上一次可能遗留的回滚容器
                         if docker container inspect \
