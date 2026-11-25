@@ -27,6 +27,10 @@ pipeline {
         TCR_REGISTRY = 'ccr.ccs.tencentyun.com'
         IMAGE_NAME   = "${env.REGISTRY_URL}/${env.JOB_BASE_NAME}:${env.BUILD_NUMBER}"
 
+        // OpenBao AppRole Secret 目录（宿主机只读、0400）；容器内固定映射到 /run/secrets/openbao-*
+        // 该目录随部署模板统一维护：缺失即拒绝部署（不得让 -v/--mount 在宿主机静默建目录）
+        KMS_APPROLE_DIR     = '/opt/openiov/kms-approle/sec-viam'
+
         // 启动检查
         STARTUP_MAX_RETRIES = '15'
         STARTUP_INTERVAL    = '5'
@@ -187,6 +191,19 @@ pipeline {
 
                         ROLLBACK_CONTAINER="${PROJECT_NAME}-rollback"
                         ROLLBACK_AVAILABLE=0
+                        ROLLBACK_IMAGE=''
+
+                        # AppRole Secret 前置校验（FW-SEC-DSN-CR-019 / OpenBao AppRole）
+                        # 必须在停止旧容器之前失败：源路径缺失时 --mount 会报错、-v 会静默建目录
+                        for secret_file in \
+                            "${KMS_APPROLE_DIR}/role-id" \
+                            "${KMS_APPROLE_DIR}/secret-id"; do
+
+                            if [ ! -f "${secret_file}" ] || [ ! -r "${secret_file}" ]; then
+                                echo "缺少可读的 AppRole Secret 文件：${secret_file}（拒绝部署）"
+                                exit 1
+                            fi
+                        done
 
                         logout_tcr() {
                             docker logout "${TCR_REGISTRY}" >/dev/null 2>&1 || true
@@ -201,11 +218,19 @@ pipeline {
                             if [ "${ROLLBACK_AVAILABLE}" -eq 1 ]; then
                                 echo "恢复旧容器：${PROJECT_NAME}"
 
-                                docker rename \
-                                    "${ROLLBACK_CONTAINER}" \
-                                    "${PROJECT_NAME}"
+                                # 回滚必须用旧镜像 + 同一组只读 Secret 挂载重建容器。
+                                # 直接 docker start 旧容器会沿用「无挂载」的旧定义，配置为 AppRole 时必然启动失败。
+                                docker run \
+                                    --detach \
+                                    --name "${PROJECT_NAME}" \
+                                    --network openiov-management \
+                                    --restart unless-stopped \
+                                    --env-file /var/jenkins_home/nacos.env \
+                                    --mount "type=bind,source=${KMS_APPROLE_DIR}/role-id,target=/run/secrets/openbao-role-id,readonly" \
+                                    --mount "type=bind,source=${KMS_APPROLE_DIR}/secret-id,target=/run/secrets/openbao-secret-id,readonly" \
+                                    "${ROLLBACK_IMAGE}"
 
-                                docker start "${PROJECT_NAME}"
+                                docker rm -f "${ROLLBACK_CONTAINER}" >/dev/null 2>&1 || true
                             else
                                 echo '没有可用于回滚的旧容器。'
                             fi
@@ -256,6 +281,10 @@ pipeline {
                                 "${PROJECT_NAME}" \
                                 "${ROLLBACK_CONTAINER}"
 
+                            ROLLBACK_IMAGE="$(docker inspect \
+                                --format '{{.Config.Image}}' \
+                                "${ROLLBACK_CONTAINER}")"
+
                             ROLLBACK_AVAILABLE=1
                         else
                             echo '未发现旧容器，本次为首次部署。'
@@ -270,6 +299,8 @@ pipeline {
                             --network openiov-management \
                             --restart unless-stopped \
                             --env-file /var/jenkins_home/nacos.env \
+                            --mount "type=bind,source=${KMS_APPROLE_DIR}/role-id,target=/run/secrets/openbao-role-id,readonly" \
+                            --mount "type=bind,source=${KMS_APPROLE_DIR}/secret-id,target=/run/secrets/openbao-secret-id,readonly" \
                             "${IMAGE_NAME}"; then
 
                             echo '新容器创建失败。'
@@ -311,6 +342,21 @@ pipeline {
                             echo '服务未在规定时间内完成启动。'
                             deployment_failed
                         fi
+
+                        # 挂载断言：AppRole 凭据必须来自只读 Secret，缺失/可写一律视为部署失败
+                        for secret_target in \
+                            /run/secrets/openbao-role-id \
+                            /run/secrets/openbao-secret-id; do
+
+                            mount_rw="$(docker inspect \
+                                --format "{{range .Mounts}}{{if eq .Destination \"${secret_target}\"}}{{.RW}}{{end}}{{end}}" \
+                                "${PROJECT_NAME}")"
+
+                            if [ "${mount_rw}" != 'false' ]; then
+                                echo "AppRole Secret 挂载异常：${secret_target} 只读标志=${mount_rw:-缺失}（期望 false）"
+                                deployment_failed
+                            fi
+                        done
 
                         echo '============================== 部署成功 =============================='
                         docker ps \
